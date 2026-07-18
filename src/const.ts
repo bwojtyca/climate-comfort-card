@@ -2,7 +2,7 @@ import type { Range, Severity } from './types';
 
 export const CARD_NAME = 'climate-comfort-card';
 export const EDITOR_NAME = 'climate-comfort-card-editor';
-export const CARD_VERSION = '0.1.0-beta.1';
+export const CARD_VERSION = '0.1.0-beta.2';
 
 /** Default chart axis ranges (chosen to keep indoor readings well framed). */
 export const DEFAULT_TEMPERATURE_AXIS: Range = { min: 10, max: 32 };

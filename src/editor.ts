@@ -3,9 +3,16 @@ import { customElement, property, state } from 'lit/decorators.js';
 import type { HomeAssistant, LovelaceCardEditor } from 'custom-card-helpers';
 import { fireEvent } from 'custom-card-helpers';
 
-import type { ClimateComfortCardConfig, PointConfig, ZoneMode } from './types';
+import type {
+  ClimateComfortCardConfig,
+  ComfortProfile,
+  PointConfig,
+  PresetId,
+  ZoneMode,
+} from './types';
 import { EDITOR_NAME } from './const';
 import { PRESETS } from './presets';
+import { resolveProfile } from './comfort';
 import { localize } from './localize';
 
 const ZONE_MODES: ZoneMode[] = ['auto', 'average', 'hidden'];
@@ -57,14 +64,59 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
     this._emit({ ...this._config, points });
   }
 
-  private _presetItems(includeDefault: boolean): TemplateResult[] {
-    const items = PRESETS.map(
-      (p) => html`<mwc-list-item value=${p.id}>${this._t(p.labelKey)}</mwc-list-item>`,
-    );
+  /**
+   * A deterministic chip row for picking a preset. Avoids the mwc-select
+   * initialisation quirk that would fire a spurious empty `selected` event and
+   * wipe the chosen preset. `includeDefault` adds a "use the card default" chip.
+   */
+  private _renderPresetChips(
+    activeId: PresetId | undefined,
+    includeDefault: boolean,
+    onPick: (id: PresetId | undefined) => void,
+  ): TemplateResult {
+    const chips: TemplateResult[] = [];
     if (includeDefault) {
-      items.unshift(html`<mwc-list-item value="">${this._t('editor.use_default')}</mwc-list-item>`);
+      chips.push(
+        this._chip(
+          this._t('editor.use_default'),
+          'mdi:home-outline',
+          !activeId,
+          () => onPick(undefined),
+        ),
+      );
     }
-    return items;
+    for (const p of PRESETS) {
+      chips.push(
+        this._chip(this._t(p.labelKey), p.icon, activeId === p.id, () => onPick(p.id)),
+      );
+    }
+    return html`<div class="ccc-chips">${chips}</div>`;
+  }
+
+  private _chip(
+    label: string,
+    icon: string,
+    active: boolean,
+    onClick: () => void,
+  ): TemplateResult {
+    return html`<button
+      type="button"
+      class="ccc-chip ${active ? 'is-active' : ''}"
+      @click=${onClick}
+    >
+      <ha-icon icon=${icon}></ha-icon><span>${label}</span>
+    </button>`;
+  }
+
+  /** Show the effective acceptable ranges of a resolved profile as a hint. */
+  private _renderRangeHint(profile: ComfortProfile): TemplateResult | typeof nothing {
+    const parts: string[] = [];
+    const t = profile.temperature?.acceptable;
+    const h = profile.humidity?.acceptable;
+    if (t) parts.push(`🌡 ${t.min}–${t.max} °C`);
+    if (h) parts.push(`💧 ${h.min}–${h.max} %`);
+    if (parts.length === 0) return nothing;
+    return html`<div class="ccc-range-hint">${parts.join('   ·   ')}</div>`;
   }
 
   protected render(): TemplateResult | typeof nothing {
@@ -79,15 +131,11 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
             this._updateRoot({ title: (e.target as HTMLInputElement).value || undefined })}
         ></ha-textfield>
 
-        <ha-select
-          label=${this._t('editor.default_preset')}
-          .value=${this._config.preset ?? ''}
-          @selected=${(e: CustomEvent) =>
-            this._updateRoot({ preset: (e.target as any).value || undefined })}
-          @closed=${(e: Event) => e.stopPropagation()}
-        >
-          ${this._presetItems(false)}
-        </ha-select>
+        <div class="ccc-field">
+          <div class="ccc-label">${this._t('editor.default_preset')}</div>
+          ${this._renderPresetChips(this._config.preset, false, (id) =>
+            this._updateRoot({ preset: id }))}
+        </div>
 
         <ha-select
           label=${this._t('editor.zone_mode')}
@@ -157,15 +205,12 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
             this._updatePoint(index, { humidity: e.detail.value || undefined })}
         ></ha-entity-picker>
 
-        <ha-select
-          label=${this._t('editor.point_preset')}
-          .value=${point.preset ?? ''}
-          @selected=${(e: CustomEvent) =>
-            this._updatePoint(index, { preset: (e.target as any).value || undefined })}
-          @closed=${(e: Event) => e.stopPropagation()}
-        >
-          ${this._presetItems(true)}
-        </ha-select>
+        <div class="ccc-field">
+          <div class="ccc-label">${this._t('editor.point_preset')}</div>
+          ${this._renderPresetChips(point.preset, true, (id) =>
+            this._updatePoint(index, { preset: id }))}
+          ${this._renderRangeHint(resolveProfile(point, this._config!.preset))}
+        </div>
       </div>
     `;
   }
@@ -202,6 +247,51 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
     }
     .ccc-point-header .grow {
       flex: 1;
+    }
+    .ccc-field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .ccc-label {
+      font-size: 12px;
+      color: var(--secondary-text-color, #888);
+    }
+    .ccc-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .ccc-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 5px 10px 5px 8px;
+      border: 1px solid var(--divider-color, #d0d0d0);
+      border-radius: 16px;
+      background: var(--card-background-color, #fff);
+      color: var(--primary-text-color, #333);
+      font-size: 13px;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background 0.1s ease, border-color 0.1s ease;
+    }
+    .ccc-chip:hover {
+      background: var(--secondary-background-color, #f0f0f0);
+    }
+    .ccc-chip.is-active {
+      background: var(--primary-color, #03a9f4);
+      border-color: var(--primary-color, #03a9f4);
+      color: var(--text-primary-color, #fff);
+    }
+    .ccc-chip ha-icon {
+      --mdc-icon-size: 18px;
+      width: 18px;
+      height: 18px;
+    }
+    .ccc-range-hint {
+      font-size: 12px;
+      color: var(--secondary-text-color, #888);
     }
   `;
 }
