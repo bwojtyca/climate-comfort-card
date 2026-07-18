@@ -7,12 +7,16 @@ import type {
   ComfortProfile,
   PointConfig,
   PointEvaluation,
+  Range,
 } from './types';
 import {
   CARD_NAME,
   CARD_VERSION,
   DEFAULT_HUMIDITY_AXIS,
   DEFAULT_TEMPERATURE_AXIS,
+  HUMIDITY_PADDING,
+  TEMPERATURE_PADDING,
+  UNAVAILABLE_COLOR,
 } from './const';
 import {
   averageProfiles,
@@ -21,12 +25,8 @@ import {
   statusKey,
   toNumber,
 } from './comfort';
-import {
-  DEFAULT_LAYOUT,
-  colorForSeverity,
-  renderChart,
-  type ChartPoint,
-} from './chart';
+import { DEFAULT_LAYOUT, renderChart, type ChartPoint } from './chart';
+import { colorForScore } from './colors';
 import { localize } from './localize';
 import './editor';
 
@@ -75,7 +75,13 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
 
   public setConfig(config: ClimateComfortCardConfig): void {
     if (!config) throw new Error('Invalid configuration');
-    this._config = { zone_mode: 'auto', show_legend: true, ...config, points: config.points ?? [] };
+    this._config = {
+      zone_mode: 'auto',
+      zone_display: 'always',
+      show_legend: true,
+      ...config,
+      points: config.points ?? [],
+    };
   }
 
   public getCardSize(): number {
@@ -106,7 +112,9 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
         temperature,
         humidity,
       });
-      const color = point.color ?? colorForSeverity(evaluation.severity);
+      const color =
+        point.color ??
+        (evaluation.unavailable ? UNAVAILABLE_COLOR : colorForScore(evaluation.score));
       return { config: point, profile, evaluation, color };
     });
   }
@@ -148,8 +156,7 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
     if (!this._config || !this.hass) return nothing;
 
     const resolved = this._resolvePoints();
-    const tempAxis = this._config.temperature_axis ?? DEFAULT_TEMPERATURE_AXIS;
-    const humAxis = this._config.humidity_axis ?? DEFAULT_HUMIDITY_AXIS;
+    const { tempAxis, humAxis } = this._computeAxes(resolved);
 
     const chartPoints: ChartPoint[] = resolved
       .map((rp, index): ChartPoint | null => {
@@ -162,10 +169,9 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
       })
       .filter((p): p is ChartPoint => p !== null);
 
-    const zone = this._computeZone(resolved);
-
     const hoveredResolved =
       this._hovered !== null ? resolved[this._hovered] : undefined;
+    const zone = this._zoneForRender(resolved, hoveredResolved);
 
     return html`
       <ha-card .header=${this._config.title}>
@@ -195,8 +201,57 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
     `;
   }
 
-  private _computeZone(resolved: ResolvedPoint[]): { zone: ReturnType<typeof averageProfiles>; faint: boolean } | undefined {
+  /** Fit each axis to the plotted values (± padding), unless overridden in config. */
+  private _computeAxes(resolved: ResolvedPoint[]): { tempAxis: Range; humAxis: Range } {
+    const temps: number[] = [];
+    const hums: number[] = [];
+    for (const rp of resolved) {
+      if (rp.evaluation.unavailable) continue;
+      if (rp.evaluation.temperature) temps.push(rp.evaluation.temperature.value);
+      if (rp.evaluation.humidity) hums.push(rp.evaluation.humidity.value);
+    }
+    return {
+      tempAxis:
+        this._config!.temperature_axis ??
+        this._autoRange(temps, TEMPERATURE_PADDING, DEFAULT_TEMPERATURE_AXIS),
+      humAxis:
+        this._config!.humidity_axis ??
+        this._autoRange(hums, HUMIDITY_PADDING, DEFAULT_HUMIDITY_AXIS, 0, 100),
+    };
+  }
+
+  private _autoRange(
+    values: number[],
+    pad: number,
+    fallback: Range,
+    clampMin = -Infinity,
+    clampMax = Infinity,
+  ): Range {
+    if (values.length === 0) return fallback;
+    let min = Math.floor(Math.min(...values) - pad);
+    let max = Math.ceil(Math.max(...values) + pad);
+    if (min === max) {
+      min -= pad;
+      max += pad;
+    }
+    return { min: Math.max(clampMin, min), max: Math.min(clampMax, max) };
+  }
+
+  /** Decide which comfort zone (if any) to draw, honouring zone_mode + zone_display. */
+  private _zoneForRender(
+    resolved: ResolvedPoint[],
+    hovered: ResolvedPoint | undefined,
+  ): { zone: ReturnType<typeof averageProfiles>; faint: boolean } | undefined {
     if (this._config?.zone_mode === 'hidden') return undefined;
+
+    if (this._config?.zone_display === 'hover') {
+      // Only the hovered point's own zone, and only while hovering.
+      if (!hovered || hovered.evaluation.unavailable) return undefined;
+      const p = hovered.profile;
+      if (!(p.temperature || p.humidity)) return undefined;
+      return { zone: averageProfiles([p]), faint: false };
+    }
+
     const profiles = resolved
       .filter((rp) => !rp.evaluation.unavailable)
       .map((rp) => rp.profile)
@@ -215,7 +270,7 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
       const e = evaluation[dim];
       if (!e) return nothing;
       return html`<div class="ccc-tt-row">
-        <span class="ccc-swatch" style=${`background:${colorForSeverity(e.severity)}`}></span>
+        <span class="ccc-swatch" style=${`background:${colorForScore(e.score)}`}></span>
         <span>${e.value}${unit(dim)}</span>
         <span class="ccc-tt-status">${this._t(statusKey(e))}</span>
       </div>`;

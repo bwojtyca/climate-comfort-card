@@ -157,6 +157,16 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
           ></ha-switch>
         </ha-formfield>
 
+        <ha-formfield label=${this._t('editor.zone_hover_only')}>
+          <ha-switch
+            .checked=${this._config.zone_display === 'hover'}
+            @change=${(e: Event) =>
+              this._updateRoot({
+                zone_display: (e.target as HTMLInputElement).checked ? 'hover' : 'always',
+              })}
+          ></ha-switch>
+        </ha-formfield>
+
         <div class="ccc-section-title">${this._t('editor.points')}</div>
         ${this._config.points.map((point, index) => this._renderPointEditor(point, index))}
 

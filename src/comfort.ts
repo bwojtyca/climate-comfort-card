@@ -33,9 +33,33 @@ export function resolveProfile(
   );
 }
 
+const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
+
 /**
- * Evaluate one numeric value against a preferred/acceptable band pair.
- * `low`/`high` control which status names are used (cold/hot vs dry/humid).
+ * Continuous comfort in [0,1] for a value against a preferred/acceptable pair.
+ * Comfort does not flip at a threshold — it decays smoothly:
+ *  - anywhere inside `preferred`              -> 1 (ideal)
+ *  - at the `acceptable` edge                 -> 0.5 (borderline)
+ *  - one more tolerance-width past acceptable -> 0 (clearly bad)
+ * The tolerance width is the gap between the preferred and acceptable edges on
+ * the side the value strays toward.
+ */
+function dimensionScore(value: number, bands: { preferred: Range; acceptable: Range }): number {
+  const { preferred, acceptable } = bands;
+  if (value >= preferred.min && value <= preferred.max) return 1;
+  const [edgePref, edgeAcc] =
+    value > preferred.max
+      ? [preferred.max, acceptable.max]
+      : [preferred.min, acceptable.min];
+  const tol = Math.abs(edgeAcc - edgePref) || 1;
+  const norm = Math.abs(value - edgePref) / tol; // 0 at preferred edge, 1 at acceptable edge
+  return clamp(1 - 0.5 * norm, 0, 1);
+}
+
+/**
+ * Evaluate one numeric value against a preferred/acceptable band pair. The
+ * `status`/`severity` buckets drive the text label; `score` is the continuous
+ * comfort used for colour.
  */
 function evaluateDimension(
   dimension: Dimension,
@@ -63,7 +87,7 @@ function evaluateDimension(
     severity = 'warn';
   }
 
-  return { dimension, value, status, severity };
+  return { dimension, value, status, severity, score: dimensionScore(value, bands) };
 }
 
 /** Parse an entity state into a finite number, or undefined. */
@@ -83,20 +107,23 @@ export interface EvaluateInput {
 export function evaluatePoint(input: EvaluateInput): PointEvaluation {
   const { name, profile } = input;
   let severity: Severity = 'good';
+  let score = 1;
   let temperature: DimensionEvaluation | undefined;
   let humidity: DimensionEvaluation | undefined;
 
   if (input.temperature !== undefined && profile.temperature) {
     temperature = evaluateDimension('temperature', input.temperature, profile.temperature);
     severity = worseSeverity(severity, temperature.severity);
+    score = Math.min(score, temperature.score);
   }
   if (input.humidity !== undefined && profile.humidity) {
     humidity = evaluateDimension('humidity', input.humidity, profile.humidity);
     severity = worseSeverity(severity, humidity.severity);
+    score = Math.min(score, humidity.score);
   }
 
   const unavailable = !temperature && !humidity;
-  return { name, profile, temperature, humidity, severity, unavailable };
+  return { name, profile, temperature, humidity, severity, score, unavailable };
 }
 
 /** Average a list of ranges component-wise. */

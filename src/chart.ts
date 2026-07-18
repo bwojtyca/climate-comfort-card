@@ -2,8 +2,8 @@ import { svg, type TemplateResult, nothing } from 'lit';
 import type { ComfortProfile, PointEvaluation, Range } from './types';
 import type { AveragedZone } from './comfort';
 import {
-  SEVERITY_COLORS,
   ZONE_ACCEPTABLE_FILL,
+  ZONE_BLUR,
   ZONE_PREFERRED_FILL,
   ZONE_STROKE,
 } from './const';
@@ -52,10 +52,19 @@ function makeScales(layout: ChartLayout, tempAxis: Range, humAxis: Range): Scale
   };
 }
 
-function niceTicks(range: Range, count: number): number[] {
-  const step = (range.max - range.min) / count;
+/** Ticks at "nice" round intervals (1/2/2.5/5 × 10ⁿ) within the range. */
+function niceTicks(range: Range, target: number): number[] {
+  const span = range.max - range.min;
+  if (span <= 0) return [range.min];
+  const raw = span / target;
+  const mag = 10 ** Math.floor(Math.log10(raw));
+  const norm = raw / mag;
+  const step = (norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 2.5 ? 2.5 : norm <= 5 ? 5 : 10) * mag;
   const ticks: number[] = [];
-  for (let i = 0; i <= count; i++) ticks.push(Math.round(range.min + step * i));
+  const start = Math.ceil(range.min / step) * step;
+  for (let v = start; v <= range.max + 1e-9; v += step) {
+    ticks.push(Math.round(v * 100) / 100);
+  }
   return ticks;
 }
 
@@ -119,6 +128,16 @@ export function renderChart(o: RenderChartOptions): TemplateResult {
   return svg`
     <svg viewBox="0 0 ${layout.width} ${layout.height}" class="ccc-chart"
       role="img" preserveAspectRatio="xMidYMid meet">
+      <defs>
+        <filter id="ccc-blur" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur stdDeviation=${ZONE_BLUR} />
+        </filter>
+        <clipPath id="ccc-plot-clip">
+          <rect x=${plot.left} y=${plot.top}
+            width=${plot.right - plot.left} height=${plot.bottom - plot.top} />
+        </clipPath>
+      </defs>
+
       <!-- grid -->
       <g class="ccc-grid">
         ${xTicks.map((t) => svg`<line x1=${scales.x(t)} y1=${plot.top}
@@ -127,9 +146,13 @@ export function renderChart(o: RenderChartOptions): TemplateResult {
           x2=${plot.right} y2=${scales.y(h)} />`)}
       </g>
 
-      <!-- comfort zone(s) -->
-      ${o.zone ? renderZone(o.zone, scales, { faint: o.zoneFaint }) : nothing}
-      ${hoveredPoint ? renderHighlight(hoveredPoint.eval.profile, scales) : nothing}
+      <!-- comfort zone(s): a soft, blurred field rather than hard boxes -->
+      <g clip-path="url(#ccc-plot-clip)">
+        ${o.zone
+          ? svg`<g filter="url(#ccc-blur)">${renderZone(o.zone, scales, { faint: o.zoneFaint })}</g>`
+          : nothing}
+        ${hoveredPoint ? renderHighlight(hoveredPoint.eval.profile, scales) : nothing}
+      </g>
 
       <!-- axes -->
       <line class="ccc-axis" x1=${plot.left} y1=${plot.bottom} x2=${plot.right} y2=${plot.bottom} />
@@ -189,8 +212,4 @@ function renderPoint(p: ChartPoint, scales: Scales, o: RenderChartOptions): Temp
     <circle cx=${cx} cy=${cy} r=${r} fill=${p.color}
       stroke="var(--card-background-color, #fff)" stroke-width="1.5" />
   </g>`;
-}
-
-export function colorForSeverity(severity: PointEvaluation['severity']): string {
-  return SEVERITY_COLORS[severity];
 }

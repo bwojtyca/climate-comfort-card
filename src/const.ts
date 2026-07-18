@@ -1,22 +1,25 @@
-import type { Range, Severity } from './types';
+import type { Range } from './types';
 
 export const CARD_NAME = 'climate-comfort-card';
 export const EDITOR_NAME = 'climate-comfort-card-editor';
-export const CARD_VERSION = '0.1.0-beta.2';
+export const CARD_VERSION = '0.1.0-beta.3';
 
-/** Default chart axis ranges (chosen to keep indoor readings well framed). */
+/** Fallback axis ranges when auto-scaling has nothing to work with. */
 export const DEFAULT_TEMPERATURE_AXIS: Range = { min: 10, max: 32 };
 export const DEFAULT_HUMIDITY_AXIS: Range = { min: 20, max: 90 };
 
-/** Marker/label colour for each severity level. Falls back gracefully if the
- *  HA theme variables are missing. */
-export const SEVERITY_COLORS: Record<Severity, string> = {
-  good: 'var(--ccc-good-color, #2e9e5b)',
-  warn: 'var(--ccc-warn-color, #e0a400)',
-  bad: 'var(--ccc-bad-color, #e5484d)',
-};
+/** Auto-scale padding added around the extreme plotted values. */
+export const TEMPERATURE_PADDING = 2; // °C
+export const HUMIDITY_PADDING = 10; // percentage points
 
-/** Zone fill colours (translucent). */
-export const ZONE_PREFERRED_FILL = 'var(--ccc-preferred-fill, rgba(46, 158, 91, 0.22))';
-export const ZONE_ACCEPTABLE_FILL = 'var(--ccc-acceptable-fill, rgba(46, 158, 91, 0.10))';
-export const ZONE_STROKE = 'var(--ccc-zone-stroke, rgba(46, 158, 91, 0.5))';
+/** Colour for points whose entities are unavailable. */
+export const UNAVAILABLE_COLOR = 'var(--disabled-text-color, #9e9e9e)';
+
+/** Comfort-zone fill/stroke. Green = the "good" status hue; theme-invariant so
+ *  the soft field reads the same on light and dark HA themes. */
+export const ZONE_PREFERRED_FILL = 'rgba(12, 163, 12, 0.30)';
+export const ZONE_ACCEPTABLE_FILL = 'rgba(12, 163, 12, 0.13)';
+export const ZONE_STROKE = 'rgba(12, 163, 12, 0.65)';
+
+/** Gaussian-blur radius (viewBox units) that softens the comfort field. */
+export const ZONE_BLUR = 7;

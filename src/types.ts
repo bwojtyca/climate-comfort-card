@@ -55,6 +55,9 @@ export interface PointConfig {
 
 export type ZoneMode = 'auto' | 'average' | 'hidden';
 
+/** When comfort zones are drawn: always, or only for the hovered point. */
+export type ZoneDisplay = 'always' | 'hover';
+
 export interface ClimateComfortCardConfig extends LovelaceCardConfig {
   type: string;
   title?: string;
@@ -73,6 +76,8 @@ export interface ClimateComfortCardConfig extends LovelaceCardConfig {
    *  - 'hidden'  : never draw zones
    */
   zone_mode?: ZoneMode;
+  /** Whether comfort zones show all the time or only on hover. */
+  zone_display?: ZoneDisplay;
   show_legend?: boolean;
 }
 
@@ -94,6 +99,8 @@ export interface DimensionEvaluation {
   value: number;
   status: DimensionStatus;
   severity: Severity;
+  /** Continuous comfort in [0,1]: 1 = ideal, 0.5 = at the acceptable edge, 0 = far outside. */
+  score: number;
 }
 
 export interface PointEvaluation {
@@ -102,8 +109,10 @@ export interface PointEvaluation {
   profile: ComfortProfile;
   temperature?: DimensionEvaluation;
   humidity?: DimensionEvaluation;
-  /** Worst severity across the available dimensions. */
+  /** Worst severity across the available dimensions (kept for status labels). */
   severity: Severity;
+  /** Worst continuous comfort score across dimensions (drives the colour). */
+  score: number;
   /** True when no dimension had a usable numeric value. */
   unavailable: boolean;
 }

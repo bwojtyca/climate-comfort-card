@@ -72,10 +72,11 @@ points:
 | `title` | string | – | Card header. |
 | `points` | list | `[]` | Rooms to plot (see below). |
 | `preset` | string | `living_room` | Default preset for points without their own. |
-| `zone_mode` | `auto` \| `average` \| `hidden` | `auto` | How comfort zones are drawn for mixed presets. |
+| `zone_mode` | `auto` \| `average` \| `hidden` | `auto` | How comfort zones are combined for mixed presets. |
+| `zone_display` | `always` \| `hover` | `always` | Show comfort zones all the time, or only for the hovered point. |
 | `show_legend` | boolean | `true` | Show the per-room legend under the chart. |
-| `temperature_axis` | `{min,max}` | `{10,32}` | X-axis range (°C). |
-| `humidity_axis` | `{min,max}` | `{20,90}` | Y-axis range (%). |
+| `temperature_axis` | `{min,max}` | auto-fit | X-axis range (°C). Omit to auto-fit to points ±2 °C. |
+| `humidity_axis` | `{min,max}` | auto-fit | Y-axis range (%). Omit to auto-fit to points ±10 pp. |
 
 Each **point**:
 
@@ -102,6 +103,18 @@ Each **point**:
 
 Temperatures in °C, humidity in %RH. These are sensible starting points, not
 medical advice — tune them to your home.
+
+## Comfort scoring
+
+Comfort is **continuous**, not a threshold. Each dimension gets a score in
+`[0,1]`: `1` inside the *preferred* band, `0.5` at the edge of the *acceptable*
+band, and `0` one tolerance-width beyond it. A point's overall score is the
+worse of its two dimensions. That score drives the marker colour along a
+perceptually-even ramp (interpolated in OKLab) from green → amber → red, so a
+reading drifting from 24 → 25 → 26 °C shades gradually rather than snapping. The
+comfort zone itself is drawn as a soft, blurred field for the same reason. The
+text status ("comfortable / a bit warm / too hot") stays categorical for
+readability.
 
 ## Development
 
