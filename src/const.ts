@@ -2,15 +2,20 @@ import type { Range } from './types';
 
 export const CARD_NAME = 'climate-comfort-card';
 export const EDITOR_NAME = 'climate-comfort-card-editor';
-export const CARD_VERSION = '0.1.0-beta.8';
+export const CARD_VERSION = '0.1.0-beta.9';
 
 /** Fallback axis ranges when auto-scaling has nothing to work with. */
 export const DEFAULT_TEMPERATURE_AXIS: Range = { min: 10, max: 32 };
 export const DEFAULT_HUMIDITY_AXIS: Range = { min: 20, max: 90 };
 
-/** Auto-scale padding added around the extreme plotted values. */
-export const TEMPERATURE_PADDING = 2; // °C
-export const HUMIDITY_PADDING = 10; // percentage points
+/**
+ * Auto-scale padding is proportional to the spread of the plotted values
+ * (`PADDING_FACTOR` × spread on each side), clamped to a min/max per axis so a
+ * tight cluster still gets breathing room and a wide spread isn't over-padded.
+ */
+export const PADDING_FACTOR = 0.5;
+export const TEMPERATURE_PADDING = { min: 0.5, max: 2 }; // °C
+export const HUMIDITY_PADDING = { min: 3, max: 10 }; // percentage points
 
 /**
  * Global default dew-point comfort band (°C), applied to any profile that has

@@ -16,6 +16,7 @@ import {
   DEFAULT_HUMIDITY_AXIS,
   DEFAULT_TEMPERATURE_AXIS,
   HUMIDITY_PADDING,
+  PADDING_FACTOR,
   TEMPERATURE_PADDING,
   UNAVAILABLE_COLOR,
 } from './const';
@@ -223,21 +224,25 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
     };
   }
 
+  /**
+   * Fit an axis to `values` with padding proportional to their spread
+   * (PADDING_FACTOR × spread), clamped to [pad.min, pad.max] on each side.
+   */
   private _autoRange(
     values: number[],
-    pad: number,
+    pad: { min: number; max: number },
     fallback: Range,
     clampMin = -Infinity,
     clampMax = Infinity,
   ): Range {
     if (values.length === 0) return fallback;
-    let min = Math.floor(Math.min(...values) - pad);
-    let max = Math.ceil(Math.max(...values) + pad);
-    if (min === max) {
-      min -= pad;
-      max += pad;
-    }
-    return { min: Math.max(clampMin, min), max: Math.min(clampMax, max) };
+    const lo = Math.min(...values);
+    const hi = Math.max(...values);
+    const p = Math.min(pad.max, Math.max(pad.min, (hi - lo) * PADDING_FACTOR));
+    return {
+      min: Math.max(clampMin, lo - p),
+      max: Math.min(clampMax, hi + p),
+    };
   }
 
   /**
@@ -394,6 +399,7 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
       margin-top: 10px;
       display: flex;
       flex-wrap: wrap;
+      justify-content: center;
       gap: 6px;
     }
     .ccc-badge {
