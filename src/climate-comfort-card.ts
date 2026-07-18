@@ -201,6 +201,10 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
     return this._config?.trail_hours ?? 24;
   }
 
+  private get _prefersReducedMotion(): boolean {
+    return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+  }
+
   /** Which point indices should show a trail, given the display mode. */
   private _neededTrailIndices(resolved: ResolvedPoint[]): number[] {
     const mode = this._config?.trail_display ?? 'hover';
@@ -311,6 +315,7 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
               zoneFaint: zones.faint,
               highlightZone: zones.highlightZone,
               trails,
+              animateTrails: !this._prefersReducedMotion,
               hoveredIndex: this._hovered,
               labels: { x: this._t('axis.temperature'), y: this._t('axis.humidity') },
               moldRisk: this._config.mold_risk !== false,
@@ -334,7 +339,7 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
     const temps: number[] = [];
     const hums: number[] = [];
     for (const rp of resolved) {
-      if (rp.evaluation.unavailable) continue;
+      if (rp.evaluation.unavailable || rp.config.include_in_scale === false) continue;
       if (rp.evaluation.temperature) temps.push(rp.evaluation.temperature.value);
       if (rp.evaluation.humidity) hums.push(rp.evaluation.humidity.value);
     }

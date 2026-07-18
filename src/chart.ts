@@ -177,9 +177,12 @@ export interface TrailPoint {
  * Fading "comet" trail from oldest to newest position. Each segment gets a
  * higher opacity toward the present, so the direction of travel reads at a glance.
  */
-function renderTrail(trail: TrailPoint[], color: string, scales: Scales): TemplateResult {
+function renderTrail(trail: TrailPoint[], color: string, scales: Scales, animate: boolean): TemplateResult {
   const segs: TemplateResult[] = [];
-  for (let i = 1; i < trail.length; i++) {
+  const coords: string[] = [];
+  for (let i = 0; i < trail.length; i++) {
+    coords.push(`${scales.x(trail[i].t).toFixed(1)},${scales.y(trail[i].h).toFixed(1)}`);
+    if (i === 0) continue;
     const a = trail[i - 1];
     const b = trail[i];
     const op = 0.1 + 0.65 * (i / (trail.length - 1));
@@ -187,7 +190,19 @@ function renderTrail(trail: TrailPoint[], color: string, scales: Scales): Templa
       x2=${scales.x(b.t)} y2=${scales.y(b.h)}
       stroke=${color} stroke-width="2" stroke-opacity=${op} stroke-linecap="round" />`);
   }
-  return svg`<g clip-path="url(#ccc-plot-clip)">${segs}</g>`;
+
+  // A playhead travelling the path at equal time per sample (buckets are equal
+  // real time), so pauses and back-tracks reveal how the reading fluctuated.
+  let playhead: TemplateResult | typeof nothing = nothing;
+  if (animate) {
+    const path = 'M' + coords.join(' L');
+    const dur = Math.max(3, Math.min(14, trail.length * 0.2));
+    playhead = svg`<circle r="3.5" fill=${color} stroke="var(--card-background-color, #fff)" stroke-width="1">
+      <animateMotion dur="${dur}s" repeatCount="indefinite" calcMode="linear" path=${path} />
+    </circle>`;
+  }
+
+  return svg`<g clip-path="url(#ccc-plot-clip)">${segs}${playhead}</g>`;
 }
 
 export interface RenderChartOptions {
@@ -197,6 +212,8 @@ export interface RenderChartOptions {
   points: ChartPoint[];
   /** Fading history trails (oldest to newest), one per shown point. */
   trails?: { points: TrailPoint[]; color: string }[];
+  /** Animate a playhead along each trail (off when the viewer prefers reduced motion). */
+  animateTrails?: boolean;
   /** Persistent comfort zone (drawn when zone_display is "always"). */
   zone?: AveragedZone;
   zoneFaint: boolean;
@@ -262,7 +279,7 @@ export function renderChart(o: RenderChartOptions): TemplateResult {
       <!-- history trails -->
       ${(o.trails ?? [])
         .filter((tr) => tr.points.length > 1)
-        .map((tr) => renderTrail(tr.points, tr.color, scales))}
+        .map((tr) => renderTrail(tr.points, tr.color, scales, o.animateTrails ?? false))}
 
       <!-- axes -->
       <line class="ccc-axis" x1=${plot.left} y1=${plot.bottom} x2=${plot.right} y2=${plot.bottom} />

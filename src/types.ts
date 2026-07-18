@@ -58,6 +58,12 @@ export interface PointConfig {
   comfort?: ComfortProfile;
   /** Optional explicit marker colour override. */
   color?: string;
+  /**
+   * Whether this point counts toward auto-scaling the axes (default true).
+   * Set false so an outlier (e.g. a hot attic) doesn't stretch the whole chart;
+   * the point is still plotted, clamped to the axis edge.
+   */
+  include_in_scale?: boolean;
 }
 
 export type ZoneMode = 'auto' | 'average' | 'hidden';
