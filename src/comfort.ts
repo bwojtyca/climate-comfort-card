@@ -81,7 +81,7 @@ const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v
 
 /**
  * Continuous comfort in [0,1] for a value against a preferred/acceptable pair.
- * Comfort does not flip at a threshold — it decays smoothly:
+ * Comfort does not flip at a threshold - it decays smoothly:
  *  - anywhere inside `preferred`              -> 1 (ideal)
  *  - at the `acceptable` edge                 -> 0.5 (borderline)
  *  - one more tolerance-width past acceptable -> 0 (clearly bad)

@@ -130,7 +130,7 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
     if (entity && this.hass?.states[entity]) {
       return this.hass.states[entity].attributes.friendly_name ?? entity;
     }
-    return entity ?? '—';
+    return entity ?? '-';
   }
 
   private _overallLabel(ev: PointEvaluation): string {
@@ -202,9 +202,12 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
           </div>
           ${resolved.length === 0
             ? html`<div class="ccc-empty">${this._t('card.no_points')}</div>`
-            : this._config.show_legend
-              ? this._renderLegend(resolved)
-              : nothing}
+            : html`
+                ${this._config.show_legend ? this._renderLegend(resolved) : nothing}
+                ${this._anyMoldRisk(resolved)
+                  ? html`<div class="ccc-foot-note">${this._t('mold.note')}</div>`
+                  : nothing}
+              `}
         </div>
       </ha-card>
     `;
@@ -296,21 +299,22 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
         <span class="ccc-tt-status">${this._t(statusKey(e))}</span>
       </div>`;
     };
-    const t = evaluation.temperature?.value;
-    const h = evaluation.humidity?.value;
-    const moldAtRisk =
-      this._config?.mold_risk !== false &&
-      t !== undefined &&
-      h !== undefined &&
-      moldSurfaceRh(t, h) >= MOLD_RISK_SURFACE_RH;
-
     return html`<div class="ccc-tooltip">
       <div class="ccc-tt-name">${evaluation.name}</div>
       ${row(evaluation.temperature, '°C')}
       ${row(evaluation.humidity, '%')}
       ${row(evaluation.dewPoint, '°C', this._t('label.dew_point'))}
-      ${moldAtRisk ? html`<div class="ccc-tt-mold">${this._t('mold.tooltip')}</div>` : nothing}
     </div>`;
+  }
+
+  /** True when the mold hint is on and at least one plotted point sits in it. */
+  private _anyMoldRisk(resolved: ResolvedPoint[]): boolean {
+    if (this._config?.mold_risk === false) return false;
+    return resolved.some((rp) => {
+      const t = rp.evaluation.temperature?.value;
+      const h = rp.evaluation.humidity?.value;
+      return t !== undefined && h !== undefined && moldSurfaceRh(t, h) >= MOLD_RISK_SURFACE_RH;
+    });
   }
 
   private _renderLegend(resolved: ResolvedPoint[]): TemplateResult {
@@ -322,7 +326,7 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
           class="ccc-badge ${this._hovered === index ? 'is-hovered' : ''} ${
             rp.evaluation.unavailable ? 'is-unavailable' : ''
           }"
-          title=${`${rp.evaluation.name} — ${label}`}
+          title=${`${rp.evaluation.name} - ${label}`}
           @mouseenter=${() => (this._hovered = index)}
           @mouseleave=${() => (this._hovered = null)}
           @focus=${() => (this._hovered = index)}
@@ -409,14 +413,13 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
     .ccc-tt-dim {
       color: var(--secondary-text-color, #888);
     }
-    .ccc-tt-mold {
-      margin-top: 6px;
-      padding-top: 6px;
-      border-top: 1px solid var(--divider-color, #e0e0e0);
+    .ccc-foot-note {
+      margin-top: 10px;
       color: var(--ccc-mold-text, #9e824a);
       font-size: 11.5px;
-      max-width: 180px;
-      line-height: 1.35;
+      line-height: 1.4;
+      text-align: center;
+      opacity: 0.9;
     }
     .ccc-mold-label {
       fill: var(--ccc-mold-text, #9e824a);

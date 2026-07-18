@@ -75,7 +75,7 @@ function niceTicks(range: Range, target: number): number[] {
   return ticks;
 }
 
-/** The nested preferred/acceptable bands to draw — satisfied by both an
+/** The nested preferred/acceptable bands to draw - satisfied by both an
  *  averaged zone and a single resolved profile. */
 export type ZoneBands = {
   temperature?: { preferred: Range; acceptable: Range };
@@ -88,7 +88,7 @@ type Level = 'preferred' | 'acceptable';
 /**
  * Build the comfort polygon for one level. The temperature band sets the left
  * and right edges; at each sampled temperature the humidity is bounded by the
- * RH band and — where a dew-point band exists — by the dew-point curves, which
+ * RH band and - where a dew-point band exists - by the dew-point curves, which
  * bend the top/bottom edges (the psychrometric slant a rectangle can't show).
  * Returns an SVG points string, or null if the region is empty.
  */
@@ -142,7 +142,7 @@ function renderHighlight(profile: ZoneBands, scales: Scales): TemplateResult {
 /**
  * A soft hint of where mold could form: the high-humidity region above the
  * cold-wall threshold curve. Kept deliberately faint (we only have air, not
- * surface, temperature) — a muted hatch with a small "?" label, no red alarm.
+ * surface, temperature) - a muted hatch with a small "?" label, no red alarm.
  */
 function renderMoldRisk(scales: Scales, label: string): TemplateResult {
   const { plot, tRange, hRange } = scales;
@@ -155,7 +155,7 @@ function renderMoldRisk(scales: Scales, label: string): TemplateResult {
     if (rh < hRange.max) anyVisible = true;
     curve.push([scales.x(t), scales.y(clamp(rh, hRange.min, hRange.max))]);
   }
-  if (!anyVisible) return svg``; // threshold above the visible range — nothing to show
+  if (!anyVisible) return svg``; // threshold above the visible range - nothing to show
   const region = [...curve, [scales.x(tRange.max), plot.top], [scales.x(tRange.min), plot.top]]
     .map(([x, y]) => `${x},${y}`)
     .join(' ');

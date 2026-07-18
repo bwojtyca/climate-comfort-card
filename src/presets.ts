@@ -13,7 +13,7 @@ export interface PresetDefinition {
  * Built-in comfort presets. Temperatures are °C, humidity is %RH. Ranges are
  * conservative indoor-comfort defaults drawn from common guidance
  * (comfortable air ~40-60% RH, room-dependent temperature bands). They are a
- * starting point — users can override per point via custom thresholds later.
+ * starting point - users can override per point via custom thresholds later.
  */
 export const PRESETS: PresetDefinition[] = [
   {

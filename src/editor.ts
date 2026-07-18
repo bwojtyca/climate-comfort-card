@@ -169,7 +169,7 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
     `;
   }
 
-  /** A native checkbox toggle — avoids depending on `ha-switch` being registered. */
+  /** A native checkbox toggle - avoids depending on `ha-switch` being registered. */
   private _toggle(label: string, checked: boolean, onChange: (v: boolean) => void): TemplateResult {
     return html`<label class="ccc-toggle">
       <input
@@ -181,7 +181,7 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
     </label>`;
   }
 
-  /** A native text field — avoids depending on `ha-textfield` being registered
+  /** A native text field - avoids depending on `ha-textfield` being registered
    *  in the editor context (it isn't always), which left the field invisible. */
   private _textField(opts: {
     label: string;

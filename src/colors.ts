@@ -3,7 +3,7 @@
  *
  * Stops are the design-system status hues (validated for colour-vision
  * deficiency on both light and dark surfaces). Interpolation happens in OKLab
- * so the gradient is perceptually even — a naive sRGB lerp between green and
+ * so the gradient is perceptually even - a naive sRGB lerp between green and
  * red muddies through grey/olive at the midpoint.
  */
 

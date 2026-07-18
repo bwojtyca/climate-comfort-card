@@ -28,7 +28,7 @@ const EN: Dict = {
 
   'label.dew_point': 'Dew point',
   'mold.label': 'mold risk?',
-  'mold.tooltip': 'Possible mold risk on cold walls — based on air, not surface, temperature.',
+  'mold.note': 'Hatched area marks possible mold risk on cold walls, estimated from air temperature (wall surface is likely cooler).',
 
   'preset.general': 'General',
   'preset.living_room': 'Living room',
@@ -88,7 +88,7 @@ const PL: Dict = {
 
   'label.dew_point': 'Punkt rosy',
   'mold.label': 'ryzyko pleśni?',
-  'mold.tooltip': 'Możliwe ryzyko pleśni na chłodnych ścianach — na podstawie temperatury powietrza, nie powierzchni.',
+  'mold.note': 'Zakreskowany obszar to możliwe ryzyko pleśni na chłodnych ścianach, szacowane z temperatury powietrza (powierzchnia ściany bywa chłodniejsza).',
 
   'preset.general': 'Ogólny',
   'preset.living_room': 'Salon',
