@@ -1,5 +1,7 @@
 node_modules/
-dist/
+# The built bundle is committed so HACS finds it in dist/ on the branch
+# (required for repos that publish only pre-releases). Source maps are not.
+dist/*.map
 *.log
 .DS_Store
 .idea/
