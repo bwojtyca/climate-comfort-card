@@ -27,9 +27,12 @@ comfort chart, draws comfort zones behind them, and rates each point
 
 ### HACS (recommended)
 
-1. Add this repository as a custom repository (category: *Dashboard*).
-2. Install **Climate Comfort Card**.
-3. It is added as a resource automatically.
+1. In HACS, add this repository as a **custom repository** (category: *Dashboard*):
+   `https://github.com/bwojtyca/climate-comfort-card`.
+2. While the card is in beta, enable **Show beta versions** on its HACS page
+   (early releases are published as GitHub pre-releases and are otherwise hidden).
+3. Install **Climate Comfort Card** — it is added as a Lovelace resource
+   automatically.
 
 ### Manual
 
