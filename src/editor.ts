@@ -296,24 +296,32 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
       font-size: 12px;
       color: var(--secondary-text-color, #888);
     }
+    /* Native input styled to match HA's Material filled text field, using
+       HA's own MDC theme variables so it tracks the active theme. */
     .ccc-input {
       width: 100%;
       box-sizing: border-box;
-      padding: 9px 10px;
-      border: 1px solid var(--divider-color, #d0d0d0);
-      border-radius: 8px;
-      background: var(--secondary-background-color, #f5f5f5);
-      color: var(--primary-text-color, #333);
+      padding: 8px 12px;
+      border: none;
+      border-bottom: 1px solid
+        var(--mdc-text-field-idle-line-color, var(--secondary-text-color, #888));
+      border-radius: 4px 4px 0 0;
+      background: var(--mdc-text-field-fill-color, var(--secondary-background-color, rgba(0, 0, 0, 0.05)));
+      color: var(--mdc-text-field-ink-color, var(--primary-text-color, #333));
       font: inherit;
-      font-size: 14px;
+      font-size: 16px;
+    }
+    .ccc-input:hover {
+      border-bottom-color: var(--mdc-text-field-hover-line-color, var(--primary-text-color, #333));
     }
     .ccc-input:focus {
       outline: none;
-      border-color: var(--primary-color, #03a9f4);
+      border-bottom: 2px solid var(--mdc-theme-primary, var(--primary-color, #03a9f4));
+      padding-bottom: 7px;
     }
     .ccc-input::placeholder {
-      color: var(--secondary-text-color, #999);
-      opacity: 0.8;
+      color: var(--mdc-text-field-label-ink-color, var(--secondary-text-color, #999));
+      opacity: 0.7;
     }
     .ccc-chips {
       display: flex;
