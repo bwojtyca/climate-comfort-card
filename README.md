@@ -5,9 +5,9 @@ plots the **temperature** and **humidity** of one or more rooms on a shared
 comfort chart, draws comfort zones behind them, and rates each point
 (comfortable / too cold / too humid / …).
 
-> Status: early development — first release focuses on **presets**. Custom
-> threshold editing (simple & advanced modes) is modelled in the config but not
-> yet exposed in the GUI editor.
+> First stable release focuses on **presets** and the psychrometric comfort
+> model. Custom threshold editing (simple & advanced modes) is modelled in the
+> config but not yet exposed in the GUI editor.
 
 ## What it does
 
@@ -29,10 +29,10 @@ comfort chart, draws comfort zones behind them, and rates each point
 
 1. In HACS, add this repository as a **custom repository** (category: *Dashboard*):
    `https://github.com/bwojtyca/climate-comfort-card`.
-2. While the card is in beta, enable **Show beta versions** on its HACS page
-   (early releases are published as GitHub pre-releases and are otherwise hidden).
-3. Install **Climate Comfort Card** — it is added as a Lovelace resource
+2. Install **Climate Comfort Card** — it is added as a Lovelace resource
    automatically.
+3. To receive pre-release (beta) builds, enable **Show beta versions** on its
+   HACS page.
 
 ### Manual
 
