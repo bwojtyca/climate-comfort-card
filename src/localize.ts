@@ -24,6 +24,7 @@ const EN: Dict = {
   'status.bit_dry': 'A bit dry',
   'status.bit_humid': 'A bit humid',
 
+  'preset.general': 'General',
   'preset.living_room': 'Living room',
   'preset.bedroom': 'Bedroom',
   'preset.kitchen': 'Kitchen',
@@ -31,6 +32,7 @@ const EN: Dict = {
   'preset.nursery': 'Nursery',
   'preset.office': 'Office',
   'preset.basement': 'Basement',
+  'preset.garage': 'Garage',
   'preset.server_room': 'Server room',
 
   'editor.title': 'Title',
@@ -47,6 +49,7 @@ const EN: Dict = {
   'editor.points': 'Points (rooms)',
   'editor.add_point': 'Add point',
   'editor.point_name': 'Name',
+  'editor.point_name_helper': 'Overrides the entity name; leave blank to use it',
   'editor.temperature_entity': 'Temperature entity',
   'editor.humidity_entity': 'Humidity entity',
   'editor.point_preset': 'Preset',
@@ -74,6 +77,7 @@ const PL: Dict = {
   'status.bit_dry': 'Nieco sucho',
   'status.bit_humid': 'Nieco wilgotno',
 
+  'preset.general': 'Ogólny',
   'preset.living_room': 'Salon',
   'preset.bedroom': 'Sypialnia',
   'preset.kitchen': 'Kuchnia',
@@ -81,6 +85,7 @@ const PL: Dict = {
   'preset.nursery': 'Pokój dziecięcy',
   'preset.office': 'Gabinet',
   'preset.basement': 'Piwnica',
+  'preset.garage': 'Garaż',
   'preset.server_room': 'Serwerownia',
 
   'editor.title': 'Tytuł',
@@ -97,6 +102,7 @@ const PL: Dict = {
   'editor.points': 'Punkty (pokoje)',
   'editor.add_point': 'Dodaj punkt',
   'editor.point_name': 'Nazwa',
+  'editor.point_name_helper': 'Nadpisuje nazwę encji; zostaw puste, aby jej użyć',
   'editor.temperature_entity': 'Encja temperatury',
   'editor.humidity_entity': 'Encja wilgotności',
   'editor.point_preset': 'Preset',

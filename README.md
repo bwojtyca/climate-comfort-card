@@ -92,6 +92,7 @@ Each **point**:
 
 | Preset | Temp preferred | Temp acceptable | Humidity preferred | Humidity acceptable |
 | --- | --- | --- | --- | --- |
+| General (hallway, dining, stairs…) | 19–23 | 17–25 | 40–60 | 30–65 |
 | Living room | 20–23 | 18–25 | 40–60 | 30–65 |
 | Bedroom | 16–19 | 15–21 | 40–60 | 30–65 |
 | Kitchen | 18–22 | 17–24 | 40–60 | 30–65 |
@@ -99,6 +100,7 @@ Each **point**:
 | Nursery | 20–22 | 19–23 | 45–60 | 40–65 |
 | Office | 20–23 | 19–25 | 40–60 | 30–65 |
 | Basement | 12–16 | 8–18 | 50–65 | 40–70 |
+| Garage | 10–18 | 5–24 | 40–65 | 30–75 |
 | Server room | 18–24 | 15–27 | 40–55 | 30–60 |
 
 Temperatures in °C, humidity in %RH. These are sensible starting points, not

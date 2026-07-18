@@ -173,6 +173,16 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
     `;
   }
 
+  /** The name the point would show if `name` is left blank (entity friendly
+   *  name, which entities may force via their identifiers). Used as placeholder. */
+  private _defaultName(point: PointConfig): string {
+    const entity = point.temperature || point.humidity;
+    if (entity && this.hass?.states[entity]) {
+      return this.hass.states[entity].attributes.friendly_name ?? entity;
+    }
+    return entity ?? '';
+  }
+
   private _renderPointEditor(point: PointConfig, index: number): TemplateResult {
     return html`
       <div class="ccc-point-editor">
@@ -181,6 +191,8 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
             class="grow"
             label=${this._t('editor.point_name')}
             .value=${point.name ?? ''}
+            .placeholder=${this._defaultName(point)}
+            helper=${this._t('editor.point_name_helper')}
             @input=${(e: Event) =>
               this._updatePoint(index, { name: (e.target as HTMLInputElement).value || undefined })}
           ></ha-textfield>

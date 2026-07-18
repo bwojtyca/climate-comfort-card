@@ -17,6 +17,15 @@ export interface PresetDefinition {
  */
 export const PRESETS: PresetDefinition[] = [
   {
+    id: 'general',
+    labelKey: 'preset.general',
+    icon: 'mdi:home-thermometer',
+    profile: {
+      temperature: { preferred: { min: 19, max: 23 }, acceptable: { min: 17, max: 25 } },
+      humidity: { preferred: { min: 40, max: 60 }, acceptable: { min: 30, max: 65 } },
+    },
+  },
+  {
     id: 'living_room',
     labelKey: 'preset.living_room',
     icon: 'mdi:sofa',
@@ -77,6 +86,15 @@ export const PRESETS: PresetDefinition[] = [
     profile: {
       temperature: { preferred: { min: 12, max: 16 }, acceptable: { min: 8, max: 18 } },
       humidity: { preferred: { min: 50, max: 65 }, acceptable: { min: 40, max: 70 } },
+    },
+  },
+  {
+    id: 'garage',
+    labelKey: 'preset.garage',
+    icon: 'mdi:garage',
+    profile: {
+      temperature: { preferred: { min: 10, max: 18 }, acceptable: { min: 5, max: 24 } },
+      humidity: { preferred: { min: 40, max: 65 }, acceptable: { min: 30, max: 75 } },
     },
   },
   {
