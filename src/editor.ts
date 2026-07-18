@@ -154,13 +154,10 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
           </div>
         </div>
 
-        <ha-formfield label=${this._t('editor.show_legend')}>
-          <ha-switch
-            .checked=${this._config.show_legend !== false}
-            @change=${(e: Event) =>
-              this._updateRoot({ show_legend: (e.target as HTMLInputElement).checked })}
-          ></ha-switch>
-        </ha-formfield>
+        ${this._toggle(this._t('editor.show_legend'), this._config.show_legend !== false, (v) =>
+          this._updateRoot({ show_legend: v }))}
+        ${this._toggle(this._t('editor.mold_risk'), this._config.mold_risk !== false, (v) =>
+          this._updateRoot({ mold_risk: v }))}
 
         <div class="ccc-section-title">${this._t('editor.points')}</div>
         ${this._config.points.map((point, index) => this._renderPointEditor(point, index))}
@@ -170,6 +167,18 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
         </mwc-button>
       </div>
     `;
+  }
+
+  /** A native checkbox toggle — avoids depending on `ha-switch` being registered. */
+  private _toggle(label: string, checked: boolean, onChange: (v: boolean) => void): TemplateResult {
+    return html`<label class="ccc-toggle">
+      <input
+        type="checkbox"
+        .checked=${checked}
+        @change=${(e: Event) => onChange((e.target as HTMLInputElement).checked)}
+      />
+      <span>${label}</span>
+    </label>`;
   }
 
   /** A native text field — avoids depending on `ha-textfield` being registered
@@ -358,6 +367,19 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
     .ccc-range-hint {
       font-size: 12px;
       color: var(--secondary-text-color, #888);
+    }
+    .ccc-toggle {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    .ccc-toggle input {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--primary-color, #03a9f4);
+      cursor: pointer;
     }
   `;
 }

@@ -9,7 +9,7 @@ import type {
   Severity,
 } from './types';
 import { getPresetProfile, DEFAULT_PRESET } from './presets';
-import { DEFAULT_DEWPOINT } from './const';
+import { DEFAULT_DEWPOINT, MOLD_RISK_SURFACE_RH, MOLD_SURFACE_DROP } from './const';
 
 const SEVERITY_RANK: Record<Severity, number> = { good: 0, warn: 1, bad: 2 };
 
@@ -58,6 +58,23 @@ export function rhAtDewPoint(tempC: number, dp: number): number {
   const gamma = (MAGNUS_A * dp) / (MAGNUS_B + dp);
   const rh = 100 * Math.exp(gamma - (MAGNUS_A * tempC) / (MAGNUS_B + tempC));
   return clamp(rh, 0, 100);
+}
+
+/** Saturation vapour pressure (Magnus); only ratios are used, so units cancel. */
+const saturationPressure = (tempC: number) =>
+  6.112 * Math.exp((MAGNUS_A * tempC) / (MAGNUS_B + tempC));
+
+/** Relative humidity a colder wall surface sees, given air temperature + RH. */
+export function moldSurfaceRh(tempC: number, rhPercent: number): number {
+  return rhPercent * (saturationPressure(tempC) / saturationPressure(tempC - MOLD_SURFACE_DROP));
+}
+
+/** Air RH at which the assumed cold wall reaches the mold threshold, per temperature. */
+export function moldThresholdRh(tempC: number): number {
+  return (
+    MOLD_RISK_SURFACE_RH *
+    (saturationPressure(tempC - MOLD_SURFACE_DROP) / saturationPressure(tempC))
+  );
 }
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));

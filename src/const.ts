@@ -2,7 +2,7 @@ import type { Range } from './types';
 
 export const CARD_NAME = 'climate-comfort-card';
 export const EDITOR_NAME = 'climate-comfort-card-editor';
-export const CARD_VERSION = '0.1.0';
+export const CARD_VERSION = '0.2.0-beta.1';
 
 /** Fallback axis ranges when auto-scaling has nothing to work with. */
 export const DEFAULT_TEMPERATURE_AXIS: Range = { min: 10, max: 32 };
@@ -26,6 +26,17 @@ export const DEFAULT_DEWPOINT: { preferred: Range; acceptable: Range } = {
   preferred: { min: 3, max: 14 },
   acceptable: { min: -2, max: 17 },
 };
+
+/**
+ * Mold-risk hint. We only know air readings, not wall-surface temperature, so
+ * this is deliberately a soft indication: assume the coldest surface sits
+ * `MOLD_SURFACE_DROP` °C below the air, and flag where its relative humidity
+ * would exceed `MOLD_RISK_SURFACE_RH` % (mold-germination threshold, ISO 13788).
+ */
+export const MOLD_SURFACE_DROP = 5; // °C
+export const MOLD_RISK_SURFACE_RH = 80; // %
+/** Muted ochre hatch — reads as "damp" without the alarm of a red zone. */
+export const MOLD_HATCH_STROKE = 'var(--ccc-mold-stroke, rgba(158, 130, 74, 0.55))';
 
 /** Colour for points whose entities are unavailable. */
 export const UNAVAILABLE_COLOR = 'var(--disabled-text-color, #9e9e9e)';

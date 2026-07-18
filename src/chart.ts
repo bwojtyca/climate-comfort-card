@@ -1,12 +1,15 @@
 import { svg, type TemplateResult, nothing } from 'lit';
 import type { PointEvaluation, Range } from './types';
-import { rhAtDewPoint, type AveragedZone } from './comfort';
+import { moldThresholdRh, rhAtDewPoint, type AveragedZone } from './comfort';
 import {
+  MOLD_HATCH_STROKE,
   ZONE_ACCEPTABLE_FILL,
   ZONE_BLUR,
   ZONE_PREFERRED_FILL,
   ZONE_STROKE,
 } from './const';
+
+const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
 /** A point ready to be placed on the chart. */
 export interface ChartPoint {
@@ -136,6 +139,35 @@ function renderHighlight(profile: ZoneBands, scales: Scales): TemplateResult {
     fill="none" stroke=${ZONE_STROKE} stroke-width="1.5" stroke-dasharray="4 3" />`;
 }
 
+/**
+ * A soft hint of where mold could form: the high-humidity region above the
+ * cold-wall threshold curve. Kept deliberately faint (we only have air, not
+ * surface, temperature) — a muted hatch with a small "?" label, no red alarm.
+ */
+function renderMoldRisk(scales: Scales, label: string): TemplateResult {
+  const { plot, tRange, hRange } = scales;
+  const STEPS = 24;
+  const curve: [number, number][] = [];
+  let anyVisible = false;
+  for (let i = 0; i <= STEPS; i++) {
+    const t = tRange.min + ((tRange.max - tRange.min) * i) / STEPS;
+    const rh = moldThresholdRh(t);
+    if (rh < hRange.max) anyVisible = true;
+    curve.push([scales.x(t), scales.y(clamp(rh, hRange.min, hRange.max))]);
+  }
+  if (!anyVisible) return svg``; // threshold above the visible range — nothing to show
+  const region = [...curve, [scales.x(tRange.max), plot.top], [scales.x(tRange.min), plot.top]]
+    .map(([x, y]) => `${x},${y}`)
+    .join(' ');
+  const line = curve.map(([x, y]) => `${x},${y}`).join(' ');
+  return svg`<g clip-path="url(#ccc-plot-clip)">
+    <polygon points=${region} fill="url(#ccc-mold-hatch)" stroke="none" />
+    <polyline points=${line} fill="none" stroke=${MOLD_HATCH_STROKE}
+      stroke-width="1" stroke-dasharray="3 3" opacity="0.7" />
+    <text class="ccc-mold-label" x=${plot.right - 4} y=${plot.top + 11} text-anchor="end">${label}</text>
+  </g>`;
+}
+
 export interface RenderChartOptions {
   layout: ChartLayout;
   tempAxis: Range;
@@ -148,6 +180,9 @@ export interface RenderChartOptions {
   highlightZone?: ZoneBands;
   hoveredIndex: number | null;
   labels: { x: string; y: string };
+  /** Draw the soft mold-risk hint; `moldLabel` is its in-chart caption. */
+  moldRisk?: boolean;
+  moldLabel?: string;
   onHover: (index: number | null) => void;
   onSelect: (index: number) => void;
 }
@@ -170,6 +205,11 @@ export function renderChart(o: RenderChartOptions): TemplateResult {
           <rect x=${plot.left} y=${plot.top}
             width=${plot.right - plot.left} height=${plot.bottom - plot.top} />
         </clipPath>
+        <pattern id="ccc-mold-hatch" width="7" height="7"
+          patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+          <line x1="0" y1="0" x2="0" y2="7" stroke=${MOLD_HATCH_STROKE}
+            stroke-width="1" opacity="0.5" />
+        </pattern>
       </defs>
 
       <!-- grid -->
@@ -192,6 +232,9 @@ export function renderChart(o: RenderChartOptions): TemplateResult {
             `
           : nothing}
       </g>
+
+      <!-- soft mold-risk hint -->
+      ${o.moldRisk ? renderMoldRisk(scales, o.moldLabel ?? '') : nothing}
 
       <!-- axes -->
       <line class="ccc-axis" x1=${plot.left} y1=${plot.bottom} x2=${plot.right} y2=${plot.bottom} />

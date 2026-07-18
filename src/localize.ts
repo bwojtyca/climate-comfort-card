@@ -27,6 +27,8 @@ const EN: Dict = {
   'status.bit_muggy': 'A bit muggy',
 
   'label.dew_point': 'Dew point',
+  'mold.label': 'mold risk?',
+  'mold.tooltip': 'Possible mold risk on cold walls — based on air, not surface, temperature.',
 
   'preset.general': 'General',
   'preset.living_room': 'Living room',
@@ -46,6 +48,7 @@ const EN: Dict = {
   'editor.zone_mode.average': 'Averaged',
   'editor.zone_mode.hidden': 'Hidden',
   'editor.show_legend': 'Show legend',
+  'editor.mold_risk': 'Show mold-risk hint',
   'editor.zones': 'Comfort zones',
   'editor.zones.always': 'Always',
   'editor.zones.hover': 'On hover',
@@ -84,6 +87,8 @@ const PL: Dict = {
   'status.bit_muggy': 'Nieco parno',
 
   'label.dew_point': 'Punkt rosy',
+  'mold.label': 'ryzyko pleśni?',
+  'mold.tooltip': 'Możliwe ryzyko pleśni na chłodnych ścianach — na podstawie temperatury powietrza, nie powierzchni.',
 
   'preset.general': 'Ogólny',
   'preset.living_room': 'Salon',
@@ -103,6 +108,7 @@ const PL: Dict = {
   'editor.zone_mode.average': 'Uśrednione',
   'editor.zone_mode.hidden': 'Ukryte',
   'editor.show_legend': 'Pokaż legendę',
+  'editor.mold_risk': 'Podpowiedź ryzyka pleśni',
   'editor.zones': 'Strefy komfortu',
   'editor.zones.always': 'Zawsze',
   'editor.zones.hover': 'Przy najechaniu',

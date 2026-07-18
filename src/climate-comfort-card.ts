@@ -16,6 +16,7 @@ import {
   DEFAULT_HUMIDITY_AXIS,
   DEFAULT_TEMPERATURE_AXIS,
   HUMIDITY_PADDING,
+  MOLD_RISK_SURFACE_RH,
   PADDING_FACTOR,
   TEMPERATURE_PADDING,
   UNAVAILABLE_COLOR,
@@ -23,6 +24,7 @@ import {
 import {
   averageProfiles,
   evaluatePoint,
+  moldSurfaceRh,
   resolveProfile,
   statusKey,
   toNumber,
@@ -82,6 +84,7 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
       zone_mode: 'auto',
       zone_display: 'always',
       show_legend: true,
+      mold_risk: true,
       ...config,
       points: config.points ?? [],
     };
@@ -190,6 +193,8 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
               highlightZone: zones.highlightZone,
               hoveredIndex: this._hovered,
               labels: { x: this._t('axis.temperature'), y: this._t('axis.humidity') },
+              moldRisk: this._config.mold_risk !== false,
+              moldLabel: this._t('mold.label'),
               onHover: (i) => (this._hovered = i),
               onSelect: (i) => (this._hovered = i),
             })}
@@ -291,11 +296,20 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
         <span class="ccc-tt-status">${this._t(statusKey(e))}</span>
       </div>`;
     };
+    const t = evaluation.temperature?.value;
+    const h = evaluation.humidity?.value;
+    const moldAtRisk =
+      this._config?.mold_risk !== false &&
+      t !== undefined &&
+      h !== undefined &&
+      moldSurfaceRh(t, h) >= MOLD_RISK_SURFACE_RH;
+
     return html`<div class="ccc-tooltip">
       <div class="ccc-tt-name">${evaluation.name}</div>
       ${row(evaluation.temperature, '°C')}
       ${row(evaluation.humidity, '%')}
       ${row(evaluation.dewPoint, '°C', this._t('label.dew_point'))}
+      ${moldAtRisk ? html`<div class="ccc-tt-mold">${this._t('mold.tooltip')}</div>` : nothing}
     </div>`;
   }
 
@@ -394,6 +408,21 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
     }
     .ccc-tt-dim {
       color: var(--secondary-text-color, #888);
+    }
+    .ccc-tt-mold {
+      margin-top: 6px;
+      padding-top: 6px;
+      border-top: 1px solid var(--divider-color, #e0e0e0);
+      color: var(--ccc-mold-text, #9e824a);
+      font-size: 11.5px;
+      max-width: 180px;
+      line-height: 1.35;
+    }
+    .ccc-mold-label {
+      fill: var(--ccc-mold-text, #9e824a);
+      font-size: 9px;
+      font-style: italic;
+      opacity: 0.85;
     }
     .ccc-legend {
       margin-top: 10px;

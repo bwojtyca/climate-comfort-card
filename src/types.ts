@@ -86,6 +86,8 @@ export interface ClimateComfortCardConfig extends LovelaceCardConfig {
   /** Whether comfort zones show all the time or only on hover. */
   zone_display?: ZoneDisplay;
   show_legend?: boolean;
+  /** Show the soft mold-risk hint on the chart (default true). */
+  mold_risk?: boolean;
 }
 
 /** Severity of a single dimension or of a whole point. */
