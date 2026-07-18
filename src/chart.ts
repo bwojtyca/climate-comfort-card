@@ -1,5 +1,5 @@
 import { svg, type TemplateResult, nothing } from 'lit';
-import type { ComfortProfile, PointEvaluation, Range } from './types';
+import type { PointEvaluation, Range } from './types';
 import type { AveragedZone } from './comfort';
 import {
   ZONE_ACCEPTABLE_FILL,
@@ -68,9 +68,16 @@ function niceTicks(range: Range, target: number): number[] {
   return ticks;
 }
 
+/** The nested preferred/acceptable bands to draw — satisfied by both an
+ *  averaged zone and a single resolved profile. */
+export type ZoneBands = {
+  temperature?: { preferred: Range; acceptable: Range };
+  humidity?: { preferred: Range; acceptable: Range };
+};
+
 /** Draw one comfort zone (acceptable band with preferred band nested inside). */
 function renderZone(
-  zone: AveragedZone,
+  zone: ZoneBands,
   scales: Scales,
   opts: { faint: boolean },
 ): TemplateResult {
@@ -92,8 +99,8 @@ function renderZone(
   </g>`;
 }
 
-/** Outline a single profile's preferred zone (used to highlight on hover). */
-function renderHighlight(profile: ComfortProfile, scales: Scales): TemplateResult {
+/** Crisp dashed outline of a profile's acceptable zone (hover emphasis). */
+function renderHighlight(profile: ZoneBands, scales: Scales): TemplateResult {
   const { plot } = scales;
   const x0 = profile.temperature ? scales.x(profile.temperature.acceptable.min) : plot.left;
   const x1 = profile.temperature ? scales.x(profile.temperature.acceptable.max) : plot.right;
@@ -108,8 +115,11 @@ export interface RenderChartOptions {
   tempAxis: Range;
   humAxis: Range;
   points: ChartPoint[];
+  /** Persistent comfort zone (drawn when zone_display is "always"). */
   zone?: AveragedZone;
   zoneFaint: boolean;
+  /** Zone emphasised for the hovered point: a soft filled field + outline. */
+  highlightZone?: ZoneBands;
   hoveredIndex: number | null;
   labels: { x: string; y: string };
   onHover: (index: number | null) => void;
@@ -122,8 +132,6 @@ export function renderChart(o: RenderChartOptions): TemplateResult {
   const { plot } = scales;
   const xTicks = niceTicks(tempAxis, 5);
   const yTicks = niceTicks(humAxis, 5);
-
-  const hoveredPoint = o.points.find((p) => p.index === o.hoveredIndex);
 
   return svg`
     <svg viewBox="0 0 ${layout.width} ${layout.height}" class="ccc-chart"
@@ -151,7 +159,12 @@ export function renderChart(o: RenderChartOptions): TemplateResult {
         ${o.zone
           ? svg`<g filter="url(#ccc-blur)">${renderZone(o.zone, scales, { faint: o.zoneFaint })}</g>`
           : nothing}
-        ${hoveredPoint ? renderHighlight(hoveredPoint.eval.profile, scales) : nothing}
+        ${o.highlightZone
+          ? svg`
+              <g filter="url(#ccc-blur)">${renderZone(o.highlightZone, scales, { faint: false })}</g>
+              ${renderHighlight(o.highlightZone, scales)}
+            `
+          : nothing}
       </g>
 
       <!-- axes -->

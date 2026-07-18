@@ -55,8 +55,8 @@ export interface PointConfig {
 
 export type ZoneMode = 'auto' | 'average' | 'hidden';
 
-/** When comfort zones are drawn: always, or only for the hovered point. */
-export type ZoneDisplay = 'always' | 'hover';
+/** When comfort zones are drawn: always, only on hover, or never. */
+export type ZoneDisplay = 'always' | 'hover' | 'hidden';
 
 export interface ClimateComfortCardConfig extends LovelaceCardConfig {
   type: string;

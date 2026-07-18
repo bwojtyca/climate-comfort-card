@@ -24,6 +24,7 @@ import {
   resolveProfile,
   statusKey,
   toNumber,
+  type AveragedZone,
 } from './comfort';
 import { DEFAULT_LAYOUT, renderChart, type ChartPoint } from './chart';
 import { colorForScore } from './colors';
@@ -171,7 +172,7 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
 
     const hoveredResolved =
       this._hovered !== null ? resolved[this._hovered] : undefined;
-    const zone = this._zoneForRender(resolved, hoveredResolved);
+    const zones = this._zones(resolved, hoveredResolved);
 
     return html`
       <ha-card .header=${this._config.title}>
@@ -182,8 +183,9 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
               tempAxis,
               humAxis,
               points: chartPoints,
-              zone: zone?.zone,
-              zoneFaint: zone?.faint ?? false,
+              zone: zones.zone,
+              zoneFaint: zones.faint,
+              highlightZone: zones.highlightZone,
               hoveredIndex: this._hovered,
               labels: { x: this._t('axis.temperature'), y: this._t('axis.humidity') },
               onHover: (i) => (this._hovered = i),
@@ -237,30 +239,38 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
     return { min: Math.max(clampMin, min), max: Math.min(clampMax, max) };
   }
 
-  /** Decide which comfort zone (if any) to draw, honouring zone_mode + zone_display. */
-  private _zoneForRender(
+  /**
+   * Decide what comfort geometry to draw, honouring zone_mode + zone_display:
+   *  - `zone`          : the persistent aggregate field (only when "always")
+   *  - `highlightZone` : the hovered point's own zone (soft fill + outline)
+   */
+  private _zones(
     resolved: ResolvedPoint[],
     hovered: ResolvedPoint | undefined,
-  ): { zone: ReturnType<typeof averageProfiles>; faint: boolean } | undefined {
-    if (this._config?.zone_mode === 'hidden') return undefined;
+  ): { zone?: AveragedZone; faint: boolean; highlightZone?: ComfortProfile } {
+    const display = this._config?.zone_display ?? 'always';
+    if (this._config?.zone_mode === 'hidden' || display === 'hidden') {
+      return { faint: false };
+    }
 
-    if (this._config?.zone_display === 'hover') {
-      // Only the hovered point's own zone, and only while hovering.
-      if (!hovered || hovered.evaluation.unavailable) return undefined;
+    let highlightZone: ComfortProfile | undefined;
+    if (hovered && !hovered.evaluation.unavailable) {
       const p = hovered.profile;
-      if (!(p.temperature || p.humidity)) return undefined;
-      return { zone: averageProfiles([p]), faint: false };
+      if (p.temperature || p.humidity) highlightZone = p;
+    }
+
+    if (display === 'hover') {
+      // No persistent field; the hovered point's zone carries the visual.
+      return { faint: false, highlightZone };
     }
 
     const profiles = resolved
       .filter((rp) => !rp.evaluation.unavailable)
       .map((rp) => rp.profile)
       .filter((p) => p.temperature || p.humidity);
-    if (profiles.length === 0) return undefined;
-    const zone = averageProfiles(profiles);
-    if (!zone) return undefined;
-    const faint = this._config?.zone_mode !== 'average' && !zone.uniform;
-    return { zone, faint };
+    const zone = profiles.length ? averageProfiles(profiles) : undefined;
+    const faint = !!zone && this._config?.zone_mode !== 'average' && !zone.uniform;
+    return { zone, faint, highlightZone };
   }
 
   private _renderTooltip(rp: ResolvedPoint): TemplateResult {
@@ -285,18 +295,22 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
   private _renderLegend(resolved: ResolvedPoint[]): TemplateResult {
     return html`<div class="ccc-legend">
       ${resolved.map((rp, index) => {
-        const unavailable = rp.evaluation.unavailable;
-        return html`<div
-          class="ccc-legend-item ${this._hovered === index ? 'is-hovered' : ''}"
+        const label = this._overallLabel(rp.evaluation);
+        return html`<button
+          type="button"
+          class="ccc-badge ${this._hovered === index ? 'is-hovered' : ''} ${
+            rp.evaluation.unavailable ? 'is-unavailable' : ''
+          }"
+          title=${`${rp.evaluation.name} — ${label}`}
           @mouseenter=${() => (this._hovered = index)}
           @mouseleave=${() => (this._hovered = null)}
+          @focus=${() => (this._hovered = index)}
+          @blur=${() => (this._hovered = null)}
+          @click=${() => (this._hovered = this._hovered === index ? null : index)}
         >
           <span class="ccc-swatch" style=${`background:${rp.color}`}></span>
-          <span class="ccc-legend-name">${rp.evaluation.name}</span>
-          <span class="ccc-legend-status ${unavailable ? 'is-unavailable' : ''}">
-            ${this._overallLabel(rp.evaluation)}
-          </span>
-        </div>`;
+          <span class="ccc-badge-name">${rp.evaluation.name}</span>
+        </button>`;
       })}
     </div>`;
   }
@@ -372,32 +386,41 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
       color: var(--secondary-text-color, #888);
     }
     .ccc-legend {
-      margin-top: 8px;
+      margin-top: 10px;
       display: flex;
-      flex-direction: column;
-      gap: 2px;
+      flex-wrap: wrap;
+      gap: 6px;
     }
-    .ccc-legend-item {
-      display: flex;
+    .ccc-badge {
+      display: inline-flex;
       align-items: center;
-      gap: 8px;
-      padding: 3px 6px;
-      border-radius: 6px;
-      cursor: default;
+      gap: 6px;
+      max-width: 100%;
+      padding: 4px 10px 4px 8px;
+      border: 1px solid var(--divider-color, #e0e0e0);
+      border-radius: 14px;
+      background: var(--card-background-color, #fff);
+      color: var(--primary-text-color, #333);
+      font-family: inherit;
+      font-size: 12.5px;
+      line-height: 1.2;
+      cursor: pointer;
+      transition: background 0.1s ease, border-color 0.1s ease;
     }
-    .ccc-legend-item.is-hovered {
+    .ccc-badge:hover,
+    .ccc-badge.is-hovered {
       background: var(--secondary-background-color, #f0f0f0);
+      border-color: var(--primary-color, #03a9f4);
     }
-    .ccc-legend-name {
-      font-weight: 500;
-    }
-    .ccc-legend-status {
-      margin-left: auto;
-      color: var(--secondary-text-color, #888);
-      font-size: 12px;
-    }
-    .ccc-legend-status.is-unavailable {
+    .ccc-badge.is-unavailable {
+      opacity: 0.6;
       font-style: italic;
+    }
+    .ccc-badge-name {
+      font-weight: 500;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
     .ccc-swatch {
       width: 10px;

@@ -8,14 +8,18 @@ import type {
   ComfortProfile,
   PointConfig,
   PresetId,
-  ZoneMode,
+  ZoneDisplay,
 } from './types';
 import { EDITOR_NAME } from './const';
 import { PRESETS } from './presets';
 import { resolveProfile } from './comfort';
 import { localize } from './localize';
 
-const ZONE_MODES: ZoneMode[] = ['auto', 'average', 'hidden'];
+const ZONE_DISPLAYS: { id: ZoneDisplay; icon: string }[] = [
+  { id: 'always', icon: 'mdi:eye' },
+  { id: 'hover', icon: 'mdi:gesture-tap' },
+  { id: 'hidden', icon: 'mdi:eye-off' },
+];
 
 @customElement(EDITOR_NAME)
 export class ClimateComfortCardEditor extends LitElement implements LovelaceCardEditor {
@@ -137,33 +141,25 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
             this._updateRoot({ preset: id }))}
         </div>
 
-        <ha-select
-          label=${this._t('editor.zone_mode')}
-          .value=${this._config.zone_mode ?? 'auto'}
-          @selected=${(e: CustomEvent) =>
-            this._updateRoot({ zone_mode: (e.target as any).value as ZoneMode })}
-          @closed=${(e: Event) => e.stopPropagation()}
-        >
-          ${ZONE_MODES.map(
-            (m) => html`<mwc-list-item value=${m}>${this._t(`editor.zone_mode.${m}`)}</mwc-list-item>`,
-          )}
-        </ha-select>
+        <div class="ccc-field">
+          <div class="ccc-label">${this._t('editor.zones')}</div>
+          <div class="ccc-chips">
+            ${ZONE_DISPLAYS.map(({ id, icon }) =>
+              this._chip(
+                this._t(`editor.zones.${id}`),
+                icon,
+                (this._config!.zone_display ?? 'always') === id,
+                () => this._updateRoot({ zone_display: id }),
+              ),
+            )}
+          </div>
+        </div>
 
         <ha-formfield label=${this._t('editor.show_legend')}>
           <ha-switch
             .checked=${this._config.show_legend !== false}
             @change=${(e: Event) =>
               this._updateRoot({ show_legend: (e.target as HTMLInputElement).checked })}
-          ></ha-switch>
-        </ha-formfield>
-
-        <ha-formfield label=${this._t('editor.zone_hover_only')}>
-          <ha-switch
-            .checked=${this._config.zone_display === 'hover'}
-            @change=${(e: Event) =>
-              this._updateRoot({
-                zone_display: (e.target as HTMLInputElement).checked ? 'hover' : 'always',
-              })}
           ></ha-switch>
         </ha-formfield>
 
