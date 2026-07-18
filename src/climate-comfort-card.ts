@@ -531,7 +531,7 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
             <span class="ccc-group-name">${g ?? this._t('legend.ungrouped')}</span>
             <span class="ccc-group-count">${visible}/${indices.length}</span>
           </button>
-          <div class="ccc-legend">${indices.map((i) => this._renderBadge(resolved[i], i))}</div>
+          ${indices.map((i) => this._renderBadge(resolved[i], i))}
         </div>`;
       })}
     </div>`;
@@ -671,28 +671,25 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
       margin-top: 10px;
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 6px;
     }
     .ccc-group {
       display: flex;
-      flex-direction: column;
+      flex-wrap: wrap;
+      align-items: center;
       gap: 6px;
-    }
-    .ccc-group .ccc-legend {
-      margin-top: 0;
     }
     .ccc-group-head {
       display: inline-flex;
-      align-self: center;
-      align-items: center;
-      gap: 8px;
-      padding: 2px 8px;
+      align-items: baseline;
+      gap: 5px;
+      padding: 2px 2px;
       border: none;
       background: none;
       cursor: pointer;
       color: var(--secondary-text-color, #888);
       font: inherit;
-      font-size: 11px;
+      font-size: 10.5px;
       font-weight: 700;
       letter-spacing: 0.06em;
       text-transform: uppercase;

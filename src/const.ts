@@ -2,7 +2,7 @@ import type { Range } from './types';
 
 export const CARD_NAME = 'climate-comfort-card';
 export const EDITOR_NAME = 'climate-comfort-card-editor';
-export const CARD_VERSION = '0.2.0-beta.6';
+export const CARD_VERSION = '0.2.0-beta.7';
 
 /** Fallback axis ranges when auto-scaling has nothing to work with. */
 export const DEFAULT_TEMPERATURE_AXIS: Range = { min: 10, max: 32 };
