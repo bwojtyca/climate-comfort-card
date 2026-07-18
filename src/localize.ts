@@ -69,6 +69,8 @@ const EN: Dict = {
   'editor.include_in_scale': 'Count toward axis scale',
   'editor.use_default': 'Use default',
   'editor.remove': 'Remove',
+  'editor.move_up': 'Move up',
+  'editor.move_down': 'Move down',
   'editor.legend': 'Legend',
 };
 
@@ -136,6 +138,8 @@ const PL: Dict = {
   'editor.include_in_scale': 'Uwzględniaj w skali osi',
   'editor.use_default': 'Użyj domyślnego',
   'editor.remove': 'Usuń',
+  'editor.move_up': 'Przesuń w górę',
+  'editor.move_down': 'Przesuń w dół',
   'editor.legend': 'Legenda',
 };
 

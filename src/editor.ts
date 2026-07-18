@@ -75,6 +75,15 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
     this._emit({ ...this._config, points });
   }
 
+  private _movePoint(index: number, delta: number): void {
+    if (!this._config) return;
+    const target = index + delta;
+    if (target < 0 || target >= this._config.points.length) return;
+    const points = [...this._config.points];
+    [points[index], points[target]] = [points[target], points[index]];
+    this._emit({ ...this._config, points });
+  }
+
   /**
    * A deterministic chip row for picking a preset. Avoids the mwc-select
    * initialisation quirk that would fire a spurious empty `selected` event and
@@ -262,6 +271,18 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
               onInput: (v) => this._updatePoint(index, { name: v || undefined }),
             })}
           </div>
+          <ha-icon-button
+            .path=${'M7.41,15.41L12,10.83L16.59,15.41L18,14L12,8L6,14L7.41,15.41Z'}
+            .disabled=${index === 0}
+            title=${this._t('editor.move_up')}
+            @click=${() => this._movePoint(index, -1)}
+          ></ha-icon-button>
+          <ha-icon-button
+            .path=${'M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z'}
+            .disabled=${index === this._config!.points.length - 1}
+            title=${this._t('editor.move_down')}
+            @click=${() => this._movePoint(index, 1)}
+          ></ha-icon-button>
           <ha-icon-button
             .path=${'M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z'}
             title=${this._t('editor.remove')}
