@@ -200,7 +200,7 @@ function renderTrail(trail: TrailPoint[], color: string, scales: Scales, animate
   if (animate) {
     const path = 'M' + coords.join(' L');
     const dur = Math.max(1.6, Math.min(5, trail.length * 0.09)).toFixed(1);
-    playhead = svg`<circle class="ccc-playhead" r="2.4" fill=${color}
+    playhead = svg`<circle class="ccc-playhead" r="1.5" fill=${color}
       style=${`offset-path:path('${path}');animation-duration:${dur}s`} />`;
   }
 
