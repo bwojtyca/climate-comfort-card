@@ -128,12 +128,11 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
 
     return html`
       <div class="ccc-editor">
-        <ha-textfield
-          label=${this._t('editor.title')}
-          .value=${this._config.title ?? ''}
-          @input=${(e: Event) =>
-            this._updateRoot({ title: (e.target as HTMLInputElement).value || undefined })}
-        ></ha-textfield>
+        ${this._textField({
+          label: this._t('editor.title'),
+          value: this._config.title ?? '',
+          onInput: (v) => this._updateRoot({ title: v || undefined }),
+        })}
 
         <div class="ccc-field">
           <div class="ccc-label">${this._t('editor.default_preset')}</div>
@@ -173,6 +172,28 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
     `;
   }
 
+  /** A native text field — avoids depending on `ha-textfield` being registered
+   *  in the editor context (it isn't always), which left the field invisible. */
+  private _textField(opts: {
+    label: string;
+    value: string;
+    placeholder?: string;
+    helper?: string;
+    onInput: (value: string) => void;
+  }): TemplateResult {
+    return html`<div class="ccc-field">
+      <div class="ccc-label">${opts.label}</div>
+      <input
+        class="ccc-input"
+        type="text"
+        .value=${opts.value}
+        placeholder=${opts.placeholder ?? ''}
+        @input=${(e: Event) => opts.onInput((e.target as HTMLInputElement).value)}
+      />
+      ${opts.helper ? html`<div class="ccc-range-hint">${opts.helper}</div>` : nothing}
+    </div>`;
+  }
+
   /** The name the point would show if `name` is left blank (entity friendly
    *  name, which entities may force via their identifiers). Used as placeholder. */
   private _defaultName(point: PointConfig): string {
@@ -187,15 +208,15 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
     return html`
       <div class="ccc-point-editor">
         <div class="ccc-point-header">
-          <ha-textfield
-            class="grow"
-            label=${this._t('editor.point_name')}
-            .value=${point.name ?? ''}
-            .placeholder=${this._defaultName(point)}
-            helper=${this._t('editor.point_name_helper')}
-            @input=${(e: Event) =>
-              this._updatePoint(index, { name: (e.target as HTMLInputElement).value || undefined })}
-          ></ha-textfield>
+          <div class="grow">
+            ${this._textField({
+              label: this._t('editor.point_name'),
+              value: point.name ?? '',
+              placeholder: this._defaultName(point),
+              helper: this._t('editor.point_name_helper'),
+              onInput: (v) => this._updatePoint(index, { name: v || undefined }),
+            })}
+          </div>
           <ha-icon-button
             .path=${'M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z'}
             title=${this._t('editor.remove')}
@@ -274,6 +295,25 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
     .ccc-label {
       font-size: 12px;
       color: var(--secondary-text-color, #888);
+    }
+    .ccc-input {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 9px 10px;
+      border: 1px solid var(--divider-color, #d0d0d0);
+      border-radius: 8px;
+      background: var(--secondary-background-color, #f5f5f5);
+      color: var(--primary-text-color, #333);
+      font: inherit;
+      font-size: 14px;
+    }
+    .ccc-input:focus {
+      outline: none;
+      border-color: var(--primary-color, #03a9f4);
+    }
+    .ccc-input::placeholder {
+      color: var(--secondary-text-color, #999);
+      opacity: 0.8;
     }
     .ccc-chips {
       display: flex;
