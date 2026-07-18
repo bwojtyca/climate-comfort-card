@@ -112,7 +112,11 @@ npm run watch      # rebuild on change
 npm run typecheck  # type-only check
 ```
 
-The bundle output is `dist/climate-comfort-card.js`.
+The bundle output is `dist/climate-comfort-card.js`. **This file is committed
+to the repository** so HACS can find it on the branch (required while only
+pre-releases are published). Re-run `npm run build` and commit `dist/` whenever
+you change `src/`. The release workflow rebuilds it independently for release
+assets.
 
 ## Roadmap
 
