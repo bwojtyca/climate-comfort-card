@@ -18,6 +18,13 @@ export interface Range {
 export interface ComfortProfile {
   temperature?: { preferred: Range; acceptable: Range };
   humidity?: { preferred: Range; acceptable: Range };
+  /**
+   * Dew-point comfort band (°C). Captures the temperature×humidity interaction
+   * a rectangle cannot: a high dew point (muggy / mold risk) makes the warm+humid
+   * corner uncomfortable, a low one is dry. Defaults to a global band when the
+   * profile has both temperature and humidity; may be overridden per profile.
+   */
+  dewPoint?: { preferred: Range; acceptable: Range };
 }
 
 /** Built-in preset identifier, or any custom string the user defines. */
@@ -92,7 +99,7 @@ export type DimensionStatus =
   | 'too_low'
   | 'too_high';
 
-export type Dimension = 'temperature' | 'humidity';
+export type Dimension = 'temperature' | 'humidity' | 'dewpoint';
 
 export interface DimensionEvaluation {
   dimension: Dimension;
@@ -109,6 +116,8 @@ export interface PointEvaluation {
   profile: ComfortProfile;
   temperature?: DimensionEvaluation;
   humidity?: DimensionEvaluation;
+  /** Dew-point evaluation, present only when both temperature and humidity are known. */
+  dewPoint?: DimensionEvaluation;
   /** Worst severity across the available dimensions (kept for status labels). */
   severity: Severity;
   /** Worst continuous comfort score across dimensions (drives the colour). */

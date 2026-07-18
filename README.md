@@ -108,15 +108,31 @@ medical advice — tune them to your home.
 
 ## Comfort scoring
 
-Comfort is **continuous**, not a threshold. Each dimension gets a score in
-`[0,1]`: `1` inside the *preferred* band, `0.5` at the edge of the *acceptable*
-band, and `0` one tolerance-width beyond it. A point's overall score is the
-worse of its two dimensions. That score drives the marker colour along a
-perceptually-even ramp (interpolated in OKLab) from green → amber → red, so a
-reading drifting from 24 → 25 → 26 °C shades gradually rather than snapping. The
-comfort zone itself is drawn as a soft, blurred field for the same reason. The
-text status ("comfortable / a bit warm / too hot") stays categorical for
-readability.
+Comfort is **continuous**, not a threshold, and **psychrometric** — it accounts
+for the way temperature and humidity interact rather than treating them as two
+independent boxes.
+
+Three band constraints are evaluated and the **worst** one wins:
+
+1. **Temperature** (°C) — the preset's band.
+2. **Relative humidity** (%) — the preset's band (dryness / dampness).
+3. **Dew point** (°C, Magnus formula) — computed from temperature + humidity.
+   A high dew point is muggy / mold-prone, a low one is dry. Its upper bound
+   (~17 °C acceptable) cuts the warm-and-humid corner, so the comfortable region
+   is a **slanted polygon**, not a rectangle: at 20 °C you can sit at ~83% RH
+   before it reads "too muggy", but at 28 °C only ~51%.
+
+Each constraint scores `[0,1]`: `1` inside *preferred*, `0.5` at the *acceptable*
+edge, `0` one tolerance-width beyond. The overall score drives the marker colour
+along a perceptually-even ramp (interpolated in OKLab) green → amber → red, so a
+reading drifting 24 → 25 → 26 °C shades gradually rather than snapping. The zone
+is drawn as a soft, blurred polygon. The text status stays categorical
+("comfortable / a bit warm / too muggy") for readability.
+
+The dew-point band is a global default (preferred 3–14 °C, acceptable −2–17 °C)
+applied to any point that has both temperature and humidity; it can be
+overridden per point via `comfort.dewPoint`. Dew point is only evaluated when
+both readings exist — single-dimension points use just their own band.
 
 ## Development
 

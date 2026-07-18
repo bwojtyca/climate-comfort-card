@@ -23,6 +23,10 @@ const EN: Dict = {
   'status.bit_warm': 'A bit warm',
   'status.bit_dry': 'A bit dry',
   'status.bit_humid': 'A bit humid',
+  'status.too_muggy': 'Too muggy',
+  'status.bit_muggy': 'A bit muggy',
+
+  'label.dew_point': 'Dew point',
 
   'preset.general': 'General',
   'preset.living_room': 'Living room',
@@ -76,6 +80,10 @@ const PL: Dict = {
   'status.bit_warm': 'Nieco ciepło',
   'status.bit_dry': 'Nieco sucho',
   'status.bit_humid': 'Nieco wilgotno',
+  'status.too_muggy': 'Zbyt parno',
+  'status.bit_muggy': 'Nieco parno',
+
+  'label.dew_point': 'Punkt rosy',
 
   'preset.general': 'Ogólny',
   'preset.living_room': 'Salon',

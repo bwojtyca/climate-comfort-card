@@ -2,7 +2,7 @@ import type { Range } from './types';
 
 export const CARD_NAME = 'climate-comfort-card';
 export const EDITOR_NAME = 'climate-comfort-card-editor';
-export const CARD_VERSION = '0.1.0-beta.7';
+export const CARD_VERSION = '0.1.0-beta.8';
 
 /** Fallback axis ranges when auto-scaling has nothing to work with. */
 export const DEFAULT_TEMPERATURE_AXIS: Range = { min: 10, max: 32 };
@@ -11,6 +11,16 @@ export const DEFAULT_HUMIDITY_AXIS: Range = { min: 20, max: 90 };
 /** Auto-scale padding added around the extreme plotted values. */
 export const TEMPERATURE_PADDING = 2; // °C
 export const HUMIDITY_PADDING = 10; // percentage points
+
+/**
+ * Global default dew-point comfort band (°C), applied to any profile that has
+ * both temperature and humidity. Upper bound ≈ mugginess / mold risk (cuts the
+ * warm+humid corner); lower bound ≈ dryness. Tunable / overridable per profile.
+ */
+export const DEFAULT_DEWPOINT: { preferred: Range; acceptable: Range } = {
+  preferred: { min: 3, max: 14 },
+  acceptable: { min: -2, max: 17 },
+};
 
 /** Colour for points whose entities are unavailable. */
 export const UNAVAILABLE_COLOR = 'var(--disabled-text-color, #9e9e9e)';

@@ -9,6 +9,7 @@ import type {
   Severity,
 } from './types';
 import { getPresetProfile, DEFAULT_PRESET } from './presets';
+import { DEFAULT_DEWPOINT } from './const';
 
 const SEVERITY_RANK: Record<Severity, number> = { good: 0, warn: 1, bad: 2 };
 
@@ -24,13 +25,39 @@ export function resolveProfile(
   point: PointConfig,
   cardPreset: string | undefined,
 ): ComfortProfile {
-  if (point.comfort) return point.comfort;
-  return (
+  const base =
+    point.comfort ??
     getPresetProfile(point.preset) ??
     getPresetProfile(cardPreset) ??
     getPresetProfile(DEFAULT_PRESET) ??
-    {}
-  );
+    {};
+  return withDewPointDefault(base);
+}
+
+/** Attach the global dew-point band to any profile that has both temperature
+ *  and humidity but no explicit dew-point band. Never mutates the input. */
+function withDewPointDefault(profile: ComfortProfile): ComfortProfile {
+  if (profile.temperature && profile.humidity && !profile.dewPoint) {
+    return { ...profile, dewPoint: DEFAULT_DEWPOINT };
+  }
+  return profile;
+}
+
+const MAGNUS_A = 17.62;
+const MAGNUS_B = 243.12;
+
+/** Dew point (°C) from temperature (°C) and relative humidity (%), Magnus form. */
+export function dewPointC(tempC: number, rhPercent: number): number {
+  const rh = clamp(rhPercent, 0.1, 100);
+  const gamma = Math.log(rh / 100) + (MAGNUS_A * tempC) / (MAGNUS_B + tempC);
+  return (MAGNUS_B * gamma) / (MAGNUS_A - gamma);
+}
+
+/** Inverse: the relative humidity (%) that yields dew point `dp` at temperature `tempC`. */
+export function rhAtDewPoint(tempC: number, dp: number): number {
+  const gamma = (MAGNUS_A * dp) / (MAGNUS_B + dp);
+  const rh = 100 * Math.exp(gamma - (MAGNUS_A * tempC) / (MAGNUS_B + tempC));
+  return clamp(rh, 0, 100);
 }
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
@@ -122,8 +149,17 @@ export function evaluatePoint(input: EvaluateInput): PointEvaluation {
     score = Math.min(score, humidity.score);
   }
 
+  // Dew point couples the two: only computable when both readings exist.
+  let dewPoint: DimensionEvaluation | undefined;
+  if (input.temperature !== undefined && input.humidity !== undefined && profile.dewPoint) {
+    const dp = dewPointC(input.temperature, input.humidity);
+    dewPoint = evaluateDimension('dewpoint', Math.round(dp * 10) / 10, profile.dewPoint);
+    severity = worseSeverity(severity, dewPoint.severity);
+    score = Math.min(score, dewPoint.score);
+  }
+
   const unavailable = !temperature && !humidity;
-  return { name, profile, temperature, humidity, severity, score, unavailable };
+  return { name, profile, temperature, humidity, dewPoint, severity, score, unavailable };
 }
 
 /** Average a list of ranges component-wise. */
@@ -139,6 +175,7 @@ function averageRanges(ranges: Range[]): Range | undefined {
 export interface AveragedZone {
   temperature?: { preferred: Range; acceptable: Range };
   humidity?: { preferred: Range; acceptable: Range };
+  dewPoint?: { preferred: Range; acceptable: Range };
   /** How many distinct profiles were combined. 1 means a single shared zone. */
   sources: number;
   /** True when every source profile was identical. */
@@ -170,6 +207,10 @@ export function averageProfiles(profiles: ComfortProfile[]): AveragedZone | unde
   const ha = averageRanges(humAcceptable);
   if (hp && ha) zone.humidity = { preferred: hp, acceptable: ha };
 
+  const dpp = averageRanges(profiles.map((p) => p.dewPoint?.preferred).filter(isRange));
+  const dpa = averageRanges(profiles.map((p) => p.dewPoint?.acceptable).filter(isRange));
+  if (dpp && dpa) zone.dewPoint = { preferred: dpp, acceptable: dpa };
+
   return zone;
 }
 
@@ -180,15 +221,44 @@ function isRange(r: Range | undefined): r is Range {
 /** Map a dimension evaluation to its localization key (e.g. 'status.too_cold'). */
 export function statusKey(ev: DimensionEvaluation): string {
   if (ev.status === 'comfortable') return 'status.comfortable';
-  const cold = ev.dimension === 'temperature';
-  switch (ev.status) {
-    case 'too_low':
-      return cold ? 'status.too_cold' : 'status.too_dry';
-    case 'too_high':
-      return cold ? 'status.too_hot' : 'status.too_humid';
-    case 'bit_low':
-      return cold ? 'status.bit_cold' : 'status.bit_dry';
-    case 'bit_high':
-      return cold ? 'status.bit_warm' : 'status.bit_humid';
+  switch (ev.dimension) {
+    case 'temperature':
+      switch (ev.status) {
+        case 'too_low':
+          return 'status.too_cold';
+        case 'too_high':
+          return 'status.too_hot';
+        case 'bit_low':
+          return 'status.bit_cold';
+        case 'bit_high':
+          return 'status.bit_warm';
+      }
+      break;
+    case 'dewpoint':
+      // High dew point = muggy/mold; low dew point reuses the dryness labels.
+      switch (ev.status) {
+        case 'too_high':
+          return 'status.too_muggy';
+        case 'bit_high':
+          return 'status.bit_muggy';
+        case 'too_low':
+          return 'status.too_dry';
+        case 'bit_low':
+          return 'status.bit_dry';
+      }
+      break;
+    case 'humidity':
+      switch (ev.status) {
+        case 'too_low':
+          return 'status.too_dry';
+        case 'too_high':
+          return 'status.too_humid';
+        case 'bit_low':
+          return 'status.bit_dry';
+        case 'bit_high':
+          return 'status.bit_humid';
+      }
+      break;
   }
+  return 'status.comfortable';
 }

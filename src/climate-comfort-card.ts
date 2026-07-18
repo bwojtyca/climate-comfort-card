@@ -5,6 +5,7 @@ import type { HomeAssistant, LovelaceCard, LovelaceCardEditor } from 'custom-car
 import type {
   ClimateComfortCardConfig,
   ComfortProfile,
+  DimensionEvaluation,
   PointConfig,
   PointEvaluation,
   Range,
@@ -131,11 +132,11 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
   private _overallLabel(ev: PointEvaluation): string {
     if (ev.unavailable) return this._t('card.unavailable');
     const issues: string[] = [];
-    if (ev.temperature && ev.temperature.status !== 'comfortable') {
-      issues.push(this._t(statusKey(ev.temperature)));
-    }
-    if (ev.humidity && ev.humidity.status !== 'comfortable') {
-      issues.push(this._t(statusKey(ev.humidity)));
+    for (const dim of [ev.temperature, ev.humidity, ev.dewPoint]) {
+      if (dim && dim.status !== 'comfortable') {
+        const label = this._t(statusKey(dim));
+        if (!issues.includes(label)) issues.push(label); // dedupe (e.g. RH-dry + dew-point-dry)
+      }
     }
     return issues.length ? issues.join(', ') : this._t('status.comfortable');
   }
@@ -275,20 +276,21 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
 
   private _renderTooltip(rp: ResolvedPoint): TemplateResult {
     const { evaluation } = rp;
-    const unit = (dim: 'temperature' | 'humidity') => (dim === 'temperature' ? '°C' : '%');
-    const row = (dim: 'temperature' | 'humidity') => {
-      const e = evaluation[dim];
+    const row = (e: DimensionEvaluation | undefined, unit: string, prefix?: string) => {
       if (!e) return nothing;
       return html`<div class="ccc-tt-row">
         <span class="ccc-swatch" style=${`background:${colorForScore(e.score)}`}></span>
-        <span>${e.value}${unit(dim)}</span>
+        <span
+          >${prefix ? html`<span class="ccc-tt-dim">${prefix}</span> ` : nothing}${e.value}${unit}</span
+        >
         <span class="ccc-tt-status">${this._t(statusKey(e))}</span>
       </div>`;
     };
     return html`<div class="ccc-tooltip">
       <div class="ccc-tt-name">${evaluation.name}</div>
-      ${row('temperature')}
-      ${row('humidity')}
+      ${row(evaluation.temperature, '°C')}
+      ${row(evaluation.humidity, '%')}
+      ${row(evaluation.dewPoint, '°C', this._t('label.dew_point'))}
     </div>`;
   }
 
@@ -383,6 +385,9 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
     }
     .ccc-tt-status {
       margin-left: auto;
+      color: var(--secondary-text-color, #888);
+    }
+    .ccc-tt-dim {
       color: var(--secondary-text-color, #888);
     }
     .ccc-legend {

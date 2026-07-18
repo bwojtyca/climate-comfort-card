@@ -1,6 +1,6 @@
 import { svg, type TemplateResult, nothing } from 'lit';
 import type { PointEvaluation, Range } from './types';
-import type { AveragedZone } from './comfort';
+import { rhAtDewPoint, type AveragedZone } from './comfort';
 import {
   ZONE_ACCEPTABLE_FILL,
   ZONE_BLUR,
@@ -33,6 +33,8 @@ interface Scales {
   x: (t: number) => number;
   y: (h: number) => number;
   plot: { left: number; right: number; top: number; bottom: number };
+  tRange: Range;
+  hRange: Range;
 }
 
 function makeScales(layout: ChartLayout, tempAxis: Range, humAxis: Range): Scales {
@@ -45,6 +47,8 @@ function makeScales(layout: ChartLayout, tempAxis: Range, humAxis: Range): Scale
 
   return {
     plot: { left, right, top, bottom },
+    tRange: tempAxis,
+    hRange: humAxis,
     x: (t) => left + ((clamp(t, tempAxis.min, tempAxis.max) - tempAxis.min) /
       (tempAxis.max - tempAxis.min)) * (right - left),
     y: (h) => bottom - ((clamp(h, humAxis.min, humAxis.max) - humAxis.min) /
@@ -73,41 +77,63 @@ function niceTicks(range: Range, target: number): number[] {
 export type ZoneBands = {
   temperature?: { preferred: Range; acceptable: Range };
   humidity?: { preferred: Range; acceptable: Range };
+  dewPoint?: { preferred: Range; acceptable: Range };
 };
 
-/** Draw one comfort zone (acceptable band with preferred band nested inside). */
-function renderZone(
-  zone: ZoneBands,
-  scales: Scales,
-  opts: { faint: boolean },
-): TemplateResult {
-  const { plot } = scales;
-  const opacity = opts.faint ? 0.5 : 1;
+type Level = 'preferred' | 'acceptable';
 
-  const rectFor = (band: { temp?: Range; hum?: Range }, fill: string) => {
-    const x0 = band.temp ? scales.x(band.temp.min) : plot.left;
-    const x1 = band.temp ? scales.x(band.temp.max) : plot.right;
-    const y0 = band.hum ? scales.y(band.hum.max) : plot.top;
-    const y1 = band.hum ? scales.y(band.hum.min) : plot.bottom;
-    return svg`<rect x=${x0} y=${y0} width=${x1 - x0} height=${y1 - y0}
-      fill=${fill} stroke="none" rx="2" />`;
-  };
+/**
+ * Build the comfort polygon for one level. The temperature band sets the left
+ * and right edges; at each sampled temperature the humidity is bounded by the
+ * RH band and — where a dew-point band exists — by the dew-point curves, which
+ * bend the top/bottom edges (the psychrometric slant a rectangle can't show).
+ * Returns an SVG points string, or null if the region is empty.
+ */
+function comfortPolygon(level: Level, bands: ZoneBands, scales: Scales): string | null {
+  const t = bands.temperature?.[level];
+  const h = bands.humidity?.[level];
+  const dp = bands.dewPoint?.[level];
 
-  return svg`<g opacity=${opacity}>
-    ${rectFor({ temp: zone.temperature?.acceptable, hum: zone.humidity?.acceptable }, ZONE_ACCEPTABLE_FILL)}
-    ${rectFor({ temp: zone.temperature?.preferred, hum: zone.humidity?.preferred }, ZONE_PREFERRED_FILL)}
+  const tMin = t ? t.min : scales.tRange.min;
+  const tMax = t ? t.max : scales.tRange.max;
+  const hMax = h ? h.max : scales.hRange.max;
+  const hMin = h ? h.min : scales.hRange.min;
+
+  const STEPS = 28;
+  const upper: string[] = [];
+  const lower: string[] = [];
+  for (let i = 0; i <= STEPS; i++) {
+    const temp = tMin + ((tMax - tMin) * i) / STEPS;
+    let hi = hMax;
+    let lo = hMin;
+    if (dp) {
+      hi = Math.min(hi, rhAtDewPoint(temp, dp.max));
+      lo = Math.max(lo, rhAtDewPoint(temp, dp.min));
+    }
+    if (hi < lo) continue; // region pinched shut at this temperature
+    upper.push(`${scales.x(temp)},${scales.y(hi)}`);
+    lower.push(`${scales.x(temp)},${scales.y(lo)}`);
+  }
+  if (upper.length < 2) return null;
+  return [...upper, ...lower.reverse()].join(' ');
+}
+
+/** Draw one comfort zone: acceptable polygon with the preferred polygon nested inside. */
+function renderZone(zone: ZoneBands, scales: Scales, opts: { faint: boolean }): TemplateResult {
+  const acceptable = comfortPolygon('acceptable', zone, scales);
+  const preferred = comfortPolygon('preferred', zone, scales);
+  return svg`<g opacity=${opts.faint ? 0.5 : 1}>
+    ${acceptable ? svg`<polygon points=${acceptable} fill=${ZONE_ACCEPTABLE_FILL} stroke="none" />` : nothing}
+    ${preferred ? svg`<polygon points=${preferred} fill=${ZONE_PREFERRED_FILL} stroke="none" />` : nothing}
   </g>`;
 }
 
-/** Crisp dashed outline of a profile's acceptable zone (hover emphasis). */
+/** Crisp dashed outline of a profile's acceptable comfort polygon (hover emphasis). */
 function renderHighlight(profile: ZoneBands, scales: Scales): TemplateResult {
-  const { plot } = scales;
-  const x0 = profile.temperature ? scales.x(profile.temperature.acceptable.min) : plot.left;
-  const x1 = profile.temperature ? scales.x(profile.temperature.acceptable.max) : plot.right;
-  const y0 = profile.humidity ? scales.y(profile.humidity.acceptable.max) : plot.top;
-  const y1 = profile.humidity ? scales.y(profile.humidity.acceptable.min) : plot.bottom;
-  return svg`<rect x=${x0} y=${y0} width=${x1 - x0} height=${y1 - y0}
-    fill="none" stroke=${ZONE_STROKE} stroke-width="1.5" stroke-dasharray="4 3" rx="2" />`;
+  const points = comfortPolygon('acceptable', profile, scales);
+  if (!points) return svg``;
+  return svg`<polygon points=${points}
+    fill="none" stroke=${ZONE_STROKE} stroke-width="1.5" stroke-dasharray="4 3" />`;
 }
 
 export interface RenderChartOptions {
