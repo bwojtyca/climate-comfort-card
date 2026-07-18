@@ -57,6 +57,9 @@ interface ResolvedPoint {
   color: string;
 }
 
+/** Sentinel key for points without a group, so "Ungrouped" can be hovered too. */
+const UNGROUPED = '__ungrouped__';
+
 interface Sample {
   ms: number;
   v: number;
@@ -448,7 +451,7 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
     if (this._hoveredGroup === null) return undefined;
     const pts: TrailPoint[] = [];
     resolved.forEach((rp, i) => {
-      if (rp.config.group !== this._hoveredGroup || this._hidden.has(i)) return;
+      if ((rp.config.group ?? UNGROUPED) !== this._hoveredGroup || this._hidden.has(i)) return;
       const t = rp.evaluation.temperature?.value;
       const h = rp.evaluation.humidity?.value;
       if (t !== undefined && h !== undefined) pts.push({ t, h });
@@ -476,7 +479,8 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
   private _renderBadge(rp: ResolvedPoint, index: number): TemplateResult {
     const hidden = this._hidden.has(index);
     const label = this._overallLabel(rp.evaluation);
-    const groupHover = this._hoveredGroup !== null && rp.config.group === this._hoveredGroup;
+    const groupHover =
+      this._hoveredGroup !== null && (rp.config.group ?? UNGROUPED) === this._hoveredGroup;
     return html`<button
       type="button"
       class="ccc-badge ${this._hovered === index ? 'is-hovered' : ''} ${
@@ -528,7 +532,7 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
             type="button"
             class="ccc-group-head ${visible === 0 ? 'is-off' : ''}"
             @click=${() => this._toggleGroup(indices)}
-            @mouseenter=${() => (this._hoveredGroup = g ?? null)}
+            @mouseenter=${() => (this._hoveredGroup = g ?? UNGROUPED)}
             @mouseleave=${() => (this._hoveredGroup = null)}
           >
             <span class="ccc-group-name">${g ?? this._t('legend.ungrouped')}</span>
@@ -637,6 +641,7 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
       display: flex;
       flex-wrap: wrap;
       justify-content: center;
+      align-items: center;
       gap: 6px;
     }
     .ccc-badge {
