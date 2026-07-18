@@ -269,6 +269,12 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
           ></ha-icon-button>
         </div>
 
+        ${this._textField({
+          label: this._t('editor.point_group'),
+          value: point.group ?? '',
+          onInput: (v) => this._updatePoint(index, { group: v || undefined }),
+        })}
+
         <ha-entity-picker
           label=${this._t('editor.temperature_entity')}
           .hass=${this.hass}

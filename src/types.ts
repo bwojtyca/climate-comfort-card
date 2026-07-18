@@ -47,6 +47,8 @@ export interface PointConfig {
   temperature?: string;
   /** Entity id providing relative humidity (%). Optional. */
   humidity?: string;
+  /** Optional group name; points sharing it are grouped in the legend. */
+  group?: string;
   /** Preset used to evaluate this point; falls back to the card default. */
   preset?: PresetId;
   /**

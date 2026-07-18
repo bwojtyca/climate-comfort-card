@@ -2,7 +2,7 @@ import type { Range } from './types';
 
 export const CARD_NAME = 'climate-comfort-card';
 export const EDITOR_NAME = 'climate-comfort-card-editor';
-export const CARD_VERSION = '0.2.0-beta.4';
+export const CARD_VERSION = '0.2.0-beta.5';
 
 /** Fallback axis ranges when auto-scaling has nothing to work with. */
 export const DEFAULT_TEMPERATURE_AXIS: Range = { min: 10, max: 32 };
@@ -37,6 +37,10 @@ export const MOLD_SURFACE_DROP = 5; // °C
 export const MOLD_RISK_SURFACE_RH = 80; // %
 /** Muted ochre hatch - reads as "damp" without the alarm of a red zone. */
 export const MOLD_HATCH_STROKE = 'var(--ccc-mold-stroke, rgba(158, 130, 74, 0.55))';
+
+/** Soft blob connecting a hovered group's points. */
+export const GROUP_HULL_FILL = 'var(--ccc-group-fill, rgba(120, 140, 170, 0.12))';
+export const GROUP_HULL_STROKE = 'var(--ccc-group-stroke, rgba(120, 140, 170, 0.6))';
 
 /** Colour for points whose entities are unavailable. */
 export const UNAVAILABLE_COLOR = 'var(--disabled-text-color, #9e9e9e)';

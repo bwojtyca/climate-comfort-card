@@ -10,6 +10,7 @@ const EN: Dict = {
   'card.description': 'Plot temperature/humidity for rooms on a shared comfort chart.',
   'card.no_points': 'No points configured yet. Add at least one location.',
   'card.unavailable': 'unavailable',
+  'legend.ungrouped': 'Ungrouped',
 
   'axis.temperature': 'Temperature (°C)',
   'axis.humidity': 'Humidity (%)',
@@ -61,6 +62,7 @@ const EN: Dict = {
   'editor.add_point': 'Add point',
   'editor.point_name': 'Name',
   'editor.point_name_helper': 'Overrides the entity name; leave blank to use it',
+  'editor.point_group': 'Group (optional)',
   'editor.temperature_entity': 'Temperature entity',
   'editor.humidity_entity': 'Humidity entity',
   'editor.point_preset': 'Preset',
@@ -75,6 +77,7 @@ const PL: Dict = {
   'card.description': 'Nanieś temperaturę/wilgotność pokoi na wspólny wykres komfortu.',
   'card.no_points': 'Brak skonfigurowanych punktów. Dodaj co najmniej jedną lokalizację.',
   'card.unavailable': 'niedostępny',
+  'legend.ungrouped': 'Bez grupy',
 
   'axis.temperature': 'Temperatura (°C)',
   'axis.humidity': 'Wilgotność (%)',
@@ -126,6 +129,7 @@ const PL: Dict = {
   'editor.add_point': 'Dodaj punkt',
   'editor.point_name': 'Nazwa',
   'editor.point_name_helper': 'Nadpisuje nazwę encji; zostaw puste, aby jej użyć',
+  'editor.point_group': 'Grupa (opcjonalnie)',
   'editor.temperature_entity': 'Encja temperatury',
   'editor.humidity_entity': 'Encja wilgotności',
   'editor.point_preset': 'Preset',

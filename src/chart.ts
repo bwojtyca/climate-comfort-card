@@ -2,6 +2,8 @@ import { svg, type TemplateResult, nothing } from 'lit';
 import type { PointEvaluation, Range } from './types';
 import { moldThresholdRh, rhAtDewPoint, type AveragedZone } from './comfort';
 import {
+  GROUP_HULL_FILL,
+  GROUP_HULL_STROKE,
   MOLD_HATCH_STROKE,
   ZONE_ACCEPTABLE_FILL,
   ZONE_BLUR,
@@ -191,18 +193,64 @@ function renderTrail(trail: TrailPoint[], color: string, scales: Scales, animate
       stroke=${color} stroke-width="2" stroke-opacity=${op} stroke-linecap="round" />`);
   }
 
-  // A playhead travelling the path at equal time per sample (buckets are equal
-  // real time), so pauses and back-tracks reveal how the reading fluctuated.
+  // Playhead runs the path via a CSS motion path (offset-path). CSS survives
+  // the card's frequent re-renders without restarting, unlike SMIL, so it stays
+  // smooth. Constant speed along the path; it lingers where the path wiggled.
   let playhead: TemplateResult | typeof nothing = nothing;
   if (animate) {
     const path = 'M' + coords.join(' L');
-    const dur = Math.max(3, Math.min(14, trail.length * 0.2));
-    playhead = svg`<circle r="3.5" fill=${color} stroke="var(--card-background-color, #fff)" stroke-width="1">
-      <animateMotion dur="${dur}s" repeatCount="indefinite" calcMode="linear" path=${path} />
-    </circle>`;
+    const dur = Math.max(1.6, Math.min(5, trail.length * 0.09)).toFixed(1);
+    playhead = svg`<circle class="ccc-playhead" r="2.4" fill=${color}
+      style=${`offset-path:path('${path}');animation-duration:${dur}s`} />`;
   }
 
   return svg`<g clip-path="url(#ccc-plot-clip)">${segs}${playhead}</g>`;
+}
+
+/** Convex hull (monotone chain) of screen-space points, ordered CCW. */
+function convexHull(pts: [number, number][]): [number, number][] {
+  if (pts.length < 3) return pts;
+  const p = [...pts].sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  const cross = (o: number[], a: number[], b: number[]) =>
+    (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const lower: [number, number][] = [];
+  for (const pt of p) {
+    while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], pt) <= 0)
+      lower.pop();
+    lower.push(pt);
+  }
+  const upper: [number, number][] = [];
+  for (let i = p.length - 1; i >= 0; i--) {
+    const pt = p[i];
+    while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], pt) <= 0)
+      upper.pop();
+    upper.push(pt);
+  }
+  return lower.slice(0, -1).concat(upper.slice(0, -1));
+}
+
+/** A soft blob connecting a group's points (drawn while its legend header is hovered). */
+function renderGroupHull(members: TrailPoint[], scales: Scales): TemplateResult {
+  const screen = members.map((m): [number, number] => [scales.x(m.t), scales.y(m.h)]);
+  if (screen.length < 2) return svg``;
+  const cx = screen.reduce((s, p) => s + p[0], 0) / screen.length;
+  const cy = screen.reduce((s, p) => s + p[1], 0) / screen.length;
+  const PAD = 14;
+  const grow = (p: [number, number]): [number, number] => {
+    const dx = p[0] - cx;
+    const dy = p[1] - cy;
+    const d = Math.hypot(dx, dy) || 1;
+    return [p[0] + (dx / d) * PAD, p[1] + (dy / d) * PAD];
+  };
+  const hull = (screen.length === 2 ? screen : convexHull(screen)).map(grow);
+  const points = hull.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
+  const shape =
+    screen.length === 2
+      ? svg`<line x1=${hull[0][0]} y1=${hull[0][1]} x2=${hull[1][0]} y2=${hull[1][1]}
+          stroke=${GROUP_HULL_STROKE} stroke-width="10" stroke-linecap="round" opacity="0.5" />`
+      : svg`<polygon points=${points} fill=${GROUP_HULL_FILL}
+          stroke=${GROUP_HULL_STROKE} stroke-width="1.5" stroke-linejoin="round" />`;
+  return svg`<g clip-path="url(#ccc-plot-clip)">${shape}</g>`;
 }
 
 export interface RenderChartOptions {
@@ -210,6 +258,8 @@ export interface RenderChartOptions {
   tempAxis: Range;
   humAxis: Range;
   points: ChartPoint[];
+  /** Member positions of the hovered group; draws a soft connecting blob. */
+  groupHull?: TrailPoint[];
   /** Fading history trails (oldest to newest), one per shown point. */
   trails?: { points: TrailPoint[]; color: string }[];
   /** Animate a playhead along each trail (off when the viewer prefers reduced motion). */
@@ -275,6 +325,9 @@ export function renderChart(o: RenderChartOptions): TemplateResult {
 
       <!-- soft mold-risk hint -->
       ${o.moldRisk ? renderMoldRisk(scales) : nothing}
+
+      <!-- soft blob for the hovered group -->
+      ${o.groupHull && o.groupHull.length > 1 ? renderGroupHull(o.groupHull, scales) : nothing}
 
       <!-- history trails -->
       ${(o.trails ?? [])

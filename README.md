@@ -89,7 +89,9 @@ Each **point**:
 | `temperature` | entity id | Temperature source (°C). Optional. |
 | `humidity` | entity id | Humidity source (%). Optional. |
 | `preset` | string | Preset for this point; falls back to the card default. |
+| `group` | string | Group name; points sharing it are grouped and filterable in the legend. |
 | `color` | string | Override the marker colour. |
+| `include_in_scale` | boolean | Whether this point stretches the auto-scaled axes (default true). |
 
 ## Presets
 

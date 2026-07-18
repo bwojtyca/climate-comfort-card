@@ -107,6 +107,10 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
   @property({ attribute: false }) public hass?: HomeAssistant;
   @state() private _config?: ClimateComfortCardConfig;
   @state() private _hovered: number | null = null;
+  /** Point indices hidden via the legend. */
+  @state() private _hidden: Set<number> = new Set();
+  /** Group whose legend header is hovered (draws the connecting blob). */
+  @state() private _hoveredGroup: string | null = null;
   /** Loaded comet trails, keyed by point index. */
   @state() private _trails: Record<number, TrailPoint[]> = {};
   private _trailCache = new Map<string, { points: TrailPoint[]; at: number }>();
@@ -140,6 +144,8 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
     // Config change may alter entities/window; drop any loaded trails.
     this._trails = {};
     this._trailCache.clear();
+    this._hidden = new Set();
+    this._hoveredGroup = null;
   }
 
   public getCardSize(): number {
@@ -209,12 +215,12 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
   private _neededTrailIndices(resolved: ResolvedPoint[]): number[] {
     const mode = this._config?.trail_display ?? 'hover';
     if (mode === 'off') return [];
-    const hasBoth = (i: number) => {
+    const eligible = (i: number) => {
       const p = this._config!.points[i];
-      return !!(p?.temperature && p?.humidity);
+      return !!(p?.temperature && p?.humidity) && !this._hidden.has(i);
     };
-    if (mode === 'all') return resolved.map((_, i) => i).filter(hasBoth);
-    return this._hovered !== null && hasBoth(this._hovered) ? [this._hovered] : [];
+    if (mode === 'all') return resolved.map((_, i) => i).filter(eligible);
+    return this._hovered !== null && eligible(this._hovered) ? [this._hovered] : [];
   }
 
   /** Fetch + resample history for the given points into comet trails (cached). */
@@ -263,7 +269,14 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
   }
 
   protected shouldUpdate(changed: PropertyValues): boolean {
-    if (changed.has('_config') || changed.has('_hovered') || changed.has('_trails')) return true;
+    if (
+      changed.has('_config') ||
+      changed.has('_hovered') ||
+      changed.has('_trails') ||
+      changed.has('_hidden') ||
+      changed.has('_hoveredGroup')
+    )
+      return true;
     if (!this._config) return false;
     const old = changed.get('hass') as HomeAssistant | undefined;
     if (!old) return true;
@@ -284,7 +297,7 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
     const chartPoints: ChartPoint[] = resolved
       .map((rp, index): ChartPoint | null => {
         const { evaluation } = rp;
-        if (evaluation.unavailable) return null;
+        if (evaluation.unavailable || this._hidden.has(index)) return null;
         const hasTemp = evaluation.temperature !== undefined;
         const hasHum = evaluation.humidity !== undefined;
         const pin = hasTemp && hasHum ? 'none' : hasTemp ? 'x-axis' : 'y-axis';
@@ -316,6 +329,7 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
               highlightZone: zones.highlightZone,
               trails,
               animateTrails: !this._prefersReducedMotion,
+              groupHull: this._groupHull(resolved),
               hoveredIndex: this._hovered,
               labels: { x: this._t('axis.temperature'), y: this._t('axis.humidity') },
               moldRisk: this._config.mold_risk !== false,
@@ -338,11 +352,12 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
   private _computeAxes(resolved: ResolvedPoint[]): { tempAxis: Range; humAxis: Range } {
     const temps: number[] = [];
     const hums: number[] = [];
-    for (const rp of resolved) {
-      if (rp.evaluation.unavailable || rp.config.include_in_scale === false) continue;
+    resolved.forEach((rp, i) => {
+      if (rp.evaluation.unavailable || rp.config.include_in_scale === false || this._hidden.has(i))
+        return;
       if (rp.evaluation.temperature) temps.push(rp.evaluation.temperature.value);
       if (rp.evaluation.humidity) hums.push(rp.evaluation.humidity.value);
-    }
+    });
     return {
       tempAxis:
         this._config!.temperature_axis ??
@@ -400,7 +415,7 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
     }
 
     const profiles = resolved
-      .filter((rp) => !rp.evaluation.unavailable)
+      .filter((rp, i) => !rp.evaluation.unavailable && !this._hidden.has(i))
       .map((rp) => rp.profile)
       .filter((p) => p.temperature || p.humidity);
     const zone = profiles.length ? averageProfiles(profiles) : undefined;
@@ -428,25 +443,96 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
     </div>`;
   }
 
+  /** Group members, indexed, whose entities give a 2D position (for the hull). */
+  private _groupHull(resolved: ResolvedPoint[]): TrailPoint[] | undefined {
+    if (this._hoveredGroup === null) return undefined;
+    const pts: TrailPoint[] = [];
+    resolved.forEach((rp, i) => {
+      if (rp.config.group !== this._hoveredGroup || this._hidden.has(i)) return;
+      const t = rp.evaluation.temperature?.value;
+      const h = rp.evaluation.humidity?.value;
+      if (t !== undefined && h !== undefined) pts.push({ t, h });
+    });
+    return pts.length > 1 ? pts : undefined;
+  }
+
+  private _toggleHidden(index: number): void {
+    const next = new Set(this._hidden);
+    if (next.has(index)) next.delete(index);
+    else next.add(index);
+    this._hidden = next;
+  }
+
+  private _toggleGroup(indices: number[]): void {
+    const anyVisible = indices.some((i) => !this._hidden.has(i));
+    const next = new Set(this._hidden);
+    for (const i of indices) {
+      if (anyVisible) next.add(i);
+      else next.delete(i);
+    }
+    this._hidden = next;
+  }
+
+  private _renderBadge(rp: ResolvedPoint, index: number): TemplateResult {
+    const hidden = this._hidden.has(index);
+    const label = this._overallLabel(rp.evaluation);
+    return html`<button
+      type="button"
+      class="ccc-badge ${this._hovered === index ? 'is-hovered' : ''} ${hidden ? 'is-off' : ''} ${
+        rp.evaluation.unavailable ? 'is-unavailable' : ''
+      }"
+      title=${`${rp.evaluation.name} - ${label}`}
+      @mouseenter=${() => (this._hovered = index)}
+      @mouseleave=${() => (this._hovered = null)}
+      @focus=${() => (this._hovered = index)}
+      @blur=${() => (this._hovered = null)}
+      @click=${() => this._toggleHidden(index)}
+    >
+      <span
+        class="ccc-swatch"
+        style=${`background:${hidden ? 'var(--disabled-text-color, #9e9e9e)' : rp.color}`}
+      ></span>
+      <span class="ccc-badge-name">${rp.evaluation.name}</span>
+    </button>`;
+  }
+
   private _renderLegend(resolved: ResolvedPoint[]): TemplateResult {
-    return html`<div class="ccc-legend">
-      ${resolved.map((rp, index) => {
-        const label = this._overallLabel(rp.evaluation);
-        return html`<button
-          type="button"
-          class="ccc-badge ${this._hovered === index ? 'is-hovered' : ''} ${
-            rp.evaluation.unavailable ? 'is-unavailable' : ''
-          }"
-          title=${`${rp.evaluation.name} - ${label}`}
-          @mouseenter=${() => (this._hovered = index)}
-          @mouseleave=${() => (this._hovered = null)}
-          @focus=${() => (this._hovered = index)}
-          @blur=${() => (this._hovered = null)}
-          @click=${() => (this._hovered = this._hovered === index ? null : index)}
-        >
-          <span class="ccc-swatch" style=${`background:${rp.color}`}></span>
-          <span class="ccc-badge-name">${rp.evaluation.name}</span>
-        </button>`;
+    const hasGroups = resolved.some((rp) => rp.config.group);
+    if (!hasGroups) {
+      return html`<div class="ccc-legend">
+        ${resolved.map((rp, i) => this._renderBadge(rp, i))}
+      </div>`;
+    }
+
+    // Preserve first-appearance order of groups; undefined group goes last.
+    const order: (string | undefined)[] = [];
+    const byGroup = new Map<string | undefined, number[]>();
+    resolved.forEach((rp, i) => {
+      const g = rp.config.group;
+      if (!byGroup.has(g)) {
+        byGroup.set(g, []);
+        order.push(g);
+      }
+      byGroup.get(g)!.push(i);
+    });
+
+    return html`<div class="ccc-legend-groups">
+      ${order.map((g) => {
+        const indices = byGroup.get(g)!;
+        const visible = indices.filter((i) => !this._hidden.has(i)).length;
+        return html`<div class="ccc-group">
+          <button
+            type="button"
+            class="ccc-group-head ${visible === 0 ? 'is-off' : ''}"
+            @click=${() => this._toggleGroup(indices)}
+            @mouseenter=${() => (this._hoveredGroup = g ?? null)}
+            @mouseleave=${() => (this._hoveredGroup = null)}
+          >
+            <span class="ccc-group-name">${g ?? this._t('legend.ungrouped')}</span>
+            <span class="ccc-group-count">${visible}/${indices.length}</span>
+          </button>
+          <div class="ccc-legend">${indices.map((i) => this._renderBadge(resolved[i], i))}</div>
+        </div>`;
       })}
     </div>`;
   }
@@ -485,6 +571,25 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
       fill: var(--primary-text-color, #333);
       font-size: 10px;
       font-weight: 500;
+    }
+    .ccc-playhead {
+      animation-name: ccc-run;
+      animation-timing-function: linear;
+      animation-iteration-count: infinite;
+      will-change: offset-distance;
+    }
+    @keyframes ccc-run {
+      from {
+        offset-distance: 0%;
+      }
+      to {
+        offset-distance: 100%;
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .ccc-playhead {
+        display: none;
+      }
     }
     .ccc-point {
       cursor: pointer;
@@ -555,6 +660,53 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
     .ccc-badge.is-unavailable {
       opacity: 0.6;
       font-style: italic;
+    }
+    .ccc-badge.is-off {
+      opacity: 0.45;
+    }
+    .ccc-badge.is-off .ccc-badge-name {
+      text-decoration: line-through;
+    }
+    .ccc-legend-groups {
+      margin-top: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .ccc-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .ccc-group .ccc-legend {
+      margin-top: 0;
+    }
+    .ccc-group-head {
+      display: inline-flex;
+      align-self: center;
+      align-items: center;
+      gap: 8px;
+      padding: 2px 8px;
+      border: none;
+      background: none;
+      cursor: pointer;
+      color: var(--secondary-text-color, #888);
+      font: inherit;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .ccc-group-head:hover {
+      color: var(--primary-text-color, #333);
+    }
+    .ccc-group-head.is-off {
+      opacity: 0.5;
+    }
+    .ccc-group-count {
+      font-weight: 500;
+      letter-spacing: 0;
+      opacity: 0.8;
     }
     .ccc-badge-name {
       font-weight: 500;
