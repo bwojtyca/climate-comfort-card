@@ -476,11 +476,12 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
   private _renderBadge(rp: ResolvedPoint, index: number): TemplateResult {
     const hidden = this._hidden.has(index);
     const label = this._overallLabel(rp.evaluation);
+    const groupHover = this._hoveredGroup !== null && rp.config.group === this._hoveredGroup;
     return html`<button
       type="button"
-      class="ccc-badge ${this._hovered === index ? 'is-hovered' : ''} ${hidden ? 'is-off' : ''} ${
-        rp.evaluation.unavailable ? 'is-unavailable' : ''
-      }"
+      class="ccc-badge ${this._hovered === index ? 'is-hovered' : ''} ${
+        groupHover ? 'is-grouphover' : ''
+      } ${hidden ? 'is-off' : ''} ${rp.evaluation.unavailable ? 'is-unavailable' : ''}"
       title=${`${rp.evaluation.name} - ${label}`}
       @mouseenter=${() => (this._hovered = index)}
       @mouseleave=${() => (this._hovered = null)}
@@ -516,12 +517,14 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
       byGroup.get(g)!.push(i);
     });
 
-    return html`<div class="ccc-legend-groups">
-      ${order.map((g) => {
+    // One continuous wrapping row; group headers act as inline separators so
+    // groups flow together instead of each starting a new line.
+    return html`<div class="ccc-legend">
+      ${order.flatMap((g) => {
         const indices = byGroup.get(g)!;
         const visible = indices.filter((i) => !this._hidden.has(i)).length;
-        return html`<div class="ccc-group">
-          <button
+        return [
+          html`<button
             type="button"
             class="ccc-group-head ${visible === 0 ? 'is-off' : ''}"
             @click=${() => this._toggleGroup(indices)}
@@ -530,9 +533,9 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
           >
             <span class="ccc-group-name">${g ?? this._t('legend.ungrouped')}</span>
             <span class="ccc-group-count">${visible}/${indices.length}</span>
-          </button>
-          ${indices.map((i) => this._renderBadge(resolved[i], i))}
-        </div>`;
+          </button>`,
+          ...indices.map((i) => this._renderBadge(resolved[i], i)),
+        ];
       })}
     </div>`;
   }
@@ -661,28 +664,21 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
       opacity: 0.6;
       font-style: italic;
     }
+    .ccc-badge.is-grouphover {
+      background: var(--secondary-background-color, #f0f0f0);
+      border-color: var(--primary-color, #03a9f4);
+    }
     .ccc-badge.is-off {
       opacity: 0.45;
     }
     .ccc-badge.is-off .ccc-badge-name {
       text-decoration: line-through;
     }
-    .ccc-legend-groups {
-      margin-top: 10px;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-    .ccc-group {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 6px;
-    }
     .ccc-group-head {
       display: inline-flex;
       align-items: baseline;
       gap: 5px;
+      margin-left: 4px;
       padding: 2px 2px;
       border: none;
       background: none;
@@ -693,6 +689,9 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
       font-weight: 700;
       letter-spacing: 0.06em;
       text-transform: uppercase;
+    }
+    .ccc-group-head:first-child {
+      margin-left: 0;
     }
     .ccc-group-head:hover {
       color: var(--primary-text-color, #333);
