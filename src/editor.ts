@@ -8,6 +8,7 @@ import type {
   ComfortProfile,
   PointConfig,
   PresetId,
+  TrailDisplay,
   ZoneDisplay,
 } from './types';
 import { EDITOR_NAME } from './const';
@@ -19,6 +20,12 @@ const ZONE_DISPLAYS: { id: ZoneDisplay; icon: string }[] = [
   { id: 'always', icon: 'mdi:eye' },
   { id: 'hover', icon: 'mdi:gesture-tap' },
   { id: 'hidden', icon: 'mdi:eye-off' },
+];
+
+const TRAIL_DISPLAYS: { id: TrailDisplay; icon: string }[] = [
+  { id: 'all', icon: 'mdi:vector-polyline' },
+  { id: 'hover', icon: 'mdi:gesture-tap' },
+  { id: 'off', icon: 'mdi:close' },
 ];
 
 @customElement(EDITOR_NAME)
@@ -154,10 +161,39 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
           </div>
         </div>
 
+        <div class="ccc-field">
+          <div class="ccc-label">${this._t('editor.trail')}</div>
+          <div class="ccc-chips">
+            ${TRAIL_DISPLAYS.map(({ id, icon }) =>
+              this._chip(
+                this._t(`editor.trail.${id}`),
+                icon,
+                (this._config!.trail_display ?? 'hover') === id,
+                () => this._updateRoot({ trail_display: id }),
+              ),
+            )}
+          </div>
+        </div>
+
+        ${(this._config.trail_display ?? 'hover') !== 'off'
+          ? this._textField({
+              label: this._t('editor.trail_hours'),
+              value: String(this._config.trail_hours ?? 24),
+              onInput: (v) => {
+                const n = Number(v);
+                this._updateRoot({ trail_hours: Number.isFinite(n) && n > 0 ? n : undefined });
+              },
+            })
+          : nothing}
+
         ${this._toggle(this._t('editor.show_legend'), this._config.show_legend !== false, (v) =>
           this._updateRoot({ show_legend: v }))}
-        ${this._toggle(this._t('editor.mold_risk'), this._config.mold_risk !== false, (v) =>
-          this._updateRoot({ mold_risk: v }))}
+
+        <div class="ccc-field">
+          ${this._toggle(this._t('editor.mold_risk'), this._config.mold_risk !== false, (v) =>
+            this._updateRoot({ mold_risk: v }))}
+          <div class="ccc-range-hint">${this._t('editor.mold_help')}</div>
+        </div>
 
         <div class="ccc-section-title">${this._t('editor.points')}</div>
         ${this._config.points.map((point, index) => this._renderPointEditor(point, index))}

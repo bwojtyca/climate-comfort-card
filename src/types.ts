@@ -65,6 +65,9 @@ export type ZoneMode = 'auto' | 'average' | 'hidden';
 /** When comfort zones are drawn: always, only on hover, or never. */
 export type ZoneDisplay = 'always' | 'hover' | 'hidden';
 
+/** Which points show a history trail: all, only the hovered one, or none. */
+export type TrailDisplay = 'all' | 'hover' | 'off';
+
 export interface ClimateComfortCardConfig extends LovelaceCardConfig {
   type: string;
   title?: string;
@@ -88,6 +91,10 @@ export interface ClimateComfortCardConfig extends LovelaceCardConfig {
   show_legend?: boolean;
   /** Show the soft mold-risk hint on the chart (default true). */
   mold_risk?: boolean;
+  /** Which points show a fading "comet" history trail (default "hover"). */
+  trail_display?: TrailDisplay;
+  /** How many hours of history the trail spans (default 24). */
+  trail_hours?: number;
 }
 
 /** Severity of a single dimension or of a whole point. */

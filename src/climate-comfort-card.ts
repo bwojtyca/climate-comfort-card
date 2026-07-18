@@ -16,7 +16,6 @@ import {
   DEFAULT_HUMIDITY_AXIS,
   DEFAULT_TEMPERATURE_AXIS,
   HUMIDITY_PADDING,
-  MOLD_RISK_SURFACE_RH,
   PADDING_FACTOR,
   TEMPERATURE_PADDING,
   UNAVAILABLE_COLOR,
@@ -24,13 +23,12 @@ import {
 import {
   averageProfiles,
   evaluatePoint,
-  moldSurfaceRh,
   resolveProfile,
   statusKey,
   toNumber,
   type AveragedZone,
 } from './comfort';
-import { DEFAULT_LAYOUT, renderChart, type ChartPoint } from './chart';
+import { DEFAULT_LAYOUT, renderChart, type ChartPoint, type TrailPoint } from './chart';
 import { colorForScore } from './colors';
 import { localize } from './localize';
 import './editor';
@@ -59,11 +57,60 @@ interface ResolvedPoint {
   color: string;
 }
 
+interface Sample {
+  ms: number;
+  v: number;
+}
+
+/** Parse an HA history series (compressed WS format) into time-sorted samples. */
+function parseSeries(raw: unknown[] | undefined): Sample[] {
+  if (!Array.isArray(raw)) return [];
+  const out: Sample[] = [];
+  for (const entry of raw as Record<string, unknown>[]) {
+    const state = (entry.s ?? entry.state) as string | undefined;
+    const v = Number(state);
+    // `lu`/`last_updated` are epoch seconds in the compressed WS format.
+    const rawTime = (entry.lu ?? entry.last_updated) as number | undefined;
+    if (!Number.isFinite(v) || rawTime === undefined) continue;
+    out.push({ ms: rawTime * 1000, v });
+  }
+  return out;
+}
+
+/**
+ * Resample two independently-timed series into paired (temperature, humidity)
+ * positions over the window, using the last-known value in each time bucket.
+ * Consecutive identical positions are collapsed.
+ */
+function buildTrail(temps: Sample[], hums: Sample[], startMs: number, endMs: number): TrailPoint[] {
+  const N = 40;
+  const step = (endMs - startMs) / N;
+  const pts: TrailPoint[] = [];
+  let ti = 0;
+  let hi = 0;
+  let lastT: number | undefined;
+  let lastH: number | undefined;
+  for (let k = 0; k <= N; k++) {
+    const bucket = startMs + step * k;
+    while (ti < temps.length && temps[ti].ms <= bucket) lastT = temps[ti++].v;
+    while (hi < hums.length && hums[hi].ms <= bucket) lastH = hums[hi++].v;
+    if (lastT === undefined || lastH === undefined) continue;
+    const prev = pts[pts.length - 1];
+    if (prev && prev.t === lastT && prev.h === lastH) continue;
+    pts.push({ t: lastT, h: lastH });
+  }
+  return pts;
+}
+
 @customElement(CARD_NAME)
 export class ClimateComfortCard extends LitElement implements LovelaceCard {
   @property({ attribute: false }) public hass?: HomeAssistant;
   @state() private _config?: ClimateComfortCardConfig;
   @state() private _hovered: number | null = null;
+  /** Loaded comet trails, keyed by point index. */
+  @state() private _trails: Record<number, TrailPoint[]> = {};
+  private _trailCache = new Map<string, { points: TrailPoint[]; at: number }>();
+  private _trailInflight = new Set<string>();
 
   public static async getConfigElement(): Promise<LovelaceCardEditor> {
     return document.createElement(`${CARD_NAME}-editor`) as LovelaceCardEditor;
@@ -85,9 +132,14 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
       zone_display: 'always',
       show_legend: true,
       mold_risk: true,
+      trail_display: 'hover',
+      trail_hours: 24,
       ...config,
       points: config.points ?? [],
     };
+    // Config change may alter entities/window; drop any loaded trails.
+    this._trails = {};
+    this._trailCache.clear();
   }
 
   public getCardSize(): number {
@@ -145,8 +197,69 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
     return issues.length ? issues.join(', ') : this._t('status.comfortable');
   }
 
+  private get _trailHours(): number {
+    return this._config?.trail_hours ?? 24;
+  }
+
+  /** Which point indices should show a trail, given the display mode. */
+  private _neededTrailIndices(resolved: ResolvedPoint[]): number[] {
+    const mode = this._config?.trail_display ?? 'hover';
+    if (mode === 'off') return [];
+    const hasBoth = (i: number) => {
+      const p = this._config!.points[i];
+      return !!(p?.temperature && p?.humidity);
+    };
+    if (mode === 'all') return resolved.map((_, i) => i).filter(hasBoth);
+    return this._hovered !== null && hasBoth(this._hovered) ? [this._hovered] : [];
+  }
+
+  /** Fetch + resample history for the given points into comet trails (cached). */
+  private _ensureTrails(indices: number[]): void {
+    const hours = this._trailHours;
+    for (const index of indices) {
+      const key = `${index}|${hours}`;
+      if (this._trails[index] || this._trailInflight.has(key)) continue;
+      const cached = this._trailCache.get(key);
+      if (cached && Date.now() - cached.at < 120_000) {
+        this._trails = { ...this._trails, [index]: cached.points };
+        continue;
+      }
+      this._loadTrail(index, hours, key);
+    }
+  }
+
+  private async _loadTrail(index: number, hours: number, key: string): Promise<void> {
+    const point = this._config?.points[index];
+    if (!point?.temperature || !point.humidity || !this.hass) return;
+    this._trailInflight.add(key);
+    const end = new Date();
+    const start = new Date(end.getTime() - hours * 3_600_000);
+    try {
+      const hist = (await this.hass.callWS({
+        type: 'history/history_during_period',
+        start_time: start.toISOString(),
+        end_time: end.toISOString(),
+        entity_ids: [point.temperature, point.humidity],
+        minimal_response: true,
+        no_attributes: true,
+      })) as Record<string, unknown[]>;
+      const points = buildTrail(
+        parseSeries(hist[point.temperature]),
+        parseSeries(hist[point.humidity]),
+        start.getTime(),
+        end.getTime(),
+      );
+      this._trailCache.set(key, { points, at: Date.now() });
+      this._trails = { ...this._trails, [index]: points };
+    } catch {
+      /* history unavailable; leave this point without a trail */
+    } finally {
+      this._trailInflight.delete(key);
+    }
+  }
+
   protected shouldUpdate(changed: PropertyValues): boolean {
-    if (changed.has('_config') || changed.has('_hovered')) return true;
+    if (changed.has('_config') || changed.has('_hovered') || changed.has('_trails')) return true;
     if (!this._config) return false;
     const old = changed.get('hass') as HomeAssistant | undefined;
     if (!old) return true;
@@ -179,6 +292,12 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
       this._hovered !== null ? resolved[this._hovered] : undefined;
     const zones = this._zones(resolved, hoveredResolved);
 
+    const needed = this._neededTrailIndices(resolved);
+    this._ensureTrails(needed);
+    const trails = needed
+      .filter((i) => this._trails[i]?.length > 1)
+      .map((i) => ({ points: this._trails[i], color: resolved[i].color }));
+
     return html`
       <ha-card .header=${this._config.title}>
         <div class="ccc-body">
@@ -191,10 +310,10 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
               zone: zones.zone,
               zoneFaint: zones.faint,
               highlightZone: zones.highlightZone,
+              trails,
               hoveredIndex: this._hovered,
               labels: { x: this._t('axis.temperature'), y: this._t('axis.humidity') },
               moldRisk: this._config.mold_risk !== false,
-              moldLabel: this._t('mold.label'),
               onHover: (i) => (this._hovered = i),
               onSelect: (i) => (this._hovered = i),
             })}
@@ -202,12 +321,9 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
           </div>
           ${resolved.length === 0
             ? html`<div class="ccc-empty">${this._t('card.no_points')}</div>`
-            : html`
-                ${this._config.show_legend ? this._renderLegend(resolved) : nothing}
-                ${this._anyMoldRisk(resolved)
-                  ? html`<div class="ccc-foot-note">${this._t('mold.note')}</div>`
-                  : nothing}
-              `}
+            : this._config.show_legend
+              ? this._renderLegend(resolved)
+              : nothing}
         </div>
       </ha-card>
     `;
@@ -307,16 +423,6 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
     </div>`;
   }
 
-  /** True when the mold hint is on and at least one plotted point sits in it. */
-  private _anyMoldRisk(resolved: ResolvedPoint[]): boolean {
-    if (this._config?.mold_risk === false) return false;
-    return resolved.some((rp) => {
-      const t = rp.evaluation.temperature?.value;
-      const h = rp.evaluation.humidity?.value;
-      return t !== undefined && h !== undefined && moldSurfaceRh(t, h) >= MOLD_RISK_SURFACE_RH;
-    });
-  }
-
   private _renderLegend(resolved: ResolvedPoint[]): TemplateResult {
     return html`<div class="ccc-legend">
       ${resolved.map((rp, index) => {
@@ -412,20 +518,6 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
     }
     .ccc-tt-dim {
       color: var(--secondary-text-color, #888);
-    }
-    .ccc-foot-note {
-      margin-top: 10px;
-      color: var(--ccc-mold-text, #9e824a);
-      font-size: 11.5px;
-      line-height: 1.4;
-      text-align: center;
-      opacity: 0.9;
-    }
-    .ccc-mold-label {
-      fill: var(--ccc-mold-text, #9e824a);
-      font-size: 9px;
-      font-style: italic;
-      opacity: 0.85;
     }
     .ccc-legend {
       margin-top: 10px;

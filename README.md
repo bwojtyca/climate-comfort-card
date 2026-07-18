@@ -75,6 +75,9 @@ points:
 | `zone_mode` | `auto` \| `average` \| `hidden` | `auto` | How comfort zones are combined for mixed presets. |
 | `zone_display` | `always` \| `hover` \| `hidden` | `always` | Show comfort zones all the time, only for the hovered point, or never. |
 | `show_legend` | boolean | `true` | Show the per-room legend under the chart. |
+| `mold_risk` | boolean | `true` | Hatch the humid area where mold could form on cold walls (rough hint from air temperature). |
+| `trail_display` | `all` \| `hover` \| `off` | `hover` | Which points show a fading history trail. |
+| `trail_hours` | number | `24` | How many hours of history the trail spans (kept within the recorder's retention). |
 | `temperature_axis` | `{min,max}` | auto-fit | X-axis range (°C). Omit to auto-fit to points ±2 °C. |
 | `humidity_axis` | `{min,max}` | auto-fit | Y-axis range (%). Omit to auto-fit to points ±10 pp. |
 

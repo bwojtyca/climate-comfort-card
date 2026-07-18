@@ -144,7 +144,7 @@ function renderHighlight(profile: ZoneBands, scales: Scales): TemplateResult {
  * cold-wall threshold curve. Kept deliberately faint (we only have air, not
  * surface, temperature) - a muted hatch with a small "?" label, no red alarm.
  */
-function renderMoldRisk(scales: Scales, label: string): TemplateResult {
+function renderMoldRisk(scales: Scales): TemplateResult {
   const { plot, tRange, hRange } = scales;
   const STEPS = 24;
   const curve: [number, number][] = [];
@@ -164,8 +164,30 @@ function renderMoldRisk(scales: Scales, label: string): TemplateResult {
     <polygon points=${region} fill="url(#ccc-mold-hatch)" stroke="none" />
     <polyline points=${line} fill="none" stroke=${MOLD_HATCH_STROKE}
       stroke-width="1" stroke-dasharray="3 3" opacity="0.7" />
-    <text class="ccc-mold-label" x=${plot.right - 4} y=${plot.top + 11} text-anchor="end">${label}</text>
   </g>`;
+}
+
+/** One resampled position of a point in the past (temperature, humidity). */
+export interface TrailPoint {
+  t: number;
+  h: number;
+}
+
+/**
+ * Fading "comet" trail from oldest to newest position. Each segment gets a
+ * higher opacity toward the present, so the direction of travel reads at a glance.
+ */
+function renderTrail(trail: TrailPoint[], color: string, scales: Scales): TemplateResult {
+  const segs: TemplateResult[] = [];
+  for (let i = 1; i < trail.length; i++) {
+    const a = trail[i - 1];
+    const b = trail[i];
+    const op = 0.1 + 0.65 * (i / (trail.length - 1));
+    segs.push(svg`<line x1=${scales.x(a.t)} y1=${scales.y(a.h)}
+      x2=${scales.x(b.t)} y2=${scales.y(b.h)}
+      stroke=${color} stroke-width="2" stroke-opacity=${op} stroke-linecap="round" />`);
+  }
+  return svg`<g clip-path="url(#ccc-plot-clip)">${segs}</g>`;
 }
 
 export interface RenderChartOptions {
@@ -173,6 +195,8 @@ export interface RenderChartOptions {
   tempAxis: Range;
   humAxis: Range;
   points: ChartPoint[];
+  /** Fading history trails (oldest to newest), one per shown point. */
+  trails?: { points: TrailPoint[]; color: string }[];
   /** Persistent comfort zone (drawn when zone_display is "always"). */
   zone?: AveragedZone;
   zoneFaint: boolean;
@@ -180,9 +204,8 @@ export interface RenderChartOptions {
   highlightZone?: ZoneBands;
   hoveredIndex: number | null;
   labels: { x: string; y: string };
-  /** Draw the soft mold-risk hint; `moldLabel` is its in-chart caption. */
+  /** Draw the soft mold-risk hatch hint. */
   moldRisk?: boolean;
-  moldLabel?: string;
   onHover: (index: number | null) => void;
   onSelect: (index: number) => void;
 }
@@ -234,7 +257,12 @@ export function renderChart(o: RenderChartOptions): TemplateResult {
       </g>
 
       <!-- soft mold-risk hint -->
-      ${o.moldRisk ? renderMoldRisk(scales, o.moldLabel ?? '') : nothing}
+      ${o.moldRisk ? renderMoldRisk(scales) : nothing}
+
+      <!-- history trails -->
+      ${(o.trails ?? [])
+        .filter((tr) => tr.points.length > 1)
+        .map((tr) => renderTrail(tr.points, tr.color, scales))}
 
       <!-- axes -->
       <line class="ccc-axis" x1=${plot.left} y1=${plot.bottom} x2=${plot.right} y2=${plot.bottom} />

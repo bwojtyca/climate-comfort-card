@@ -27,8 +27,6 @@ const EN: Dict = {
   'status.bit_muggy': 'A bit muggy',
 
   'label.dew_point': 'Dew point',
-  'mold.label': 'mold risk?',
-  'mold.note': 'Hatched area marks possible mold risk on cold walls, estimated from air temperature (wall surface is likely cooler).',
 
   'preset.general': 'General',
   'preset.living_room': 'Living room',
@@ -49,6 +47,12 @@ const EN: Dict = {
   'editor.zone_mode.hidden': 'Hidden',
   'editor.show_legend': 'Show legend',
   'editor.mold_risk': 'Show mold-risk hint',
+  'editor.mold_help': 'Hatches the humid area where mold could form on cold walls. Based on air temperature only (surface is likely cooler), so treat it as a rough hint.',
+  'editor.trail': 'History trail',
+  'editor.trail.all': 'All points',
+  'editor.trail.hover': 'On hover',
+  'editor.trail.off': 'Off',
+  'editor.trail_hours': 'Trail length (hours)',
   'editor.zones': 'Comfort zones',
   'editor.zones.always': 'Always',
   'editor.zones.hover': 'On hover',
@@ -87,8 +91,6 @@ const PL: Dict = {
   'status.bit_muggy': 'Nieco parno',
 
   'label.dew_point': 'Punkt rosy',
-  'mold.label': 'ryzyko pleśni?',
-  'mold.note': 'Zakreskowany obszar to możliwe ryzyko pleśni na chłodnych ścianach, szacowane z temperatury powietrza (powierzchnia ściany bywa chłodniejsza).',
 
   'preset.general': 'Ogólny',
   'preset.living_room': 'Salon',
@@ -109,6 +111,12 @@ const PL: Dict = {
   'editor.zone_mode.hidden': 'Ukryte',
   'editor.show_legend': 'Pokaż legendę',
   'editor.mold_risk': 'Podpowiedź ryzyka pleśni',
+  'editor.mold_help': 'Kreskuje wilgotny obszar, gdzie na chłodnych ścianach może tworzyć się pleśń. Liczone tylko z temperatury powietrza (powierzchnia bywa chłodniejsza), więc traktuj to orientacyjnie.',
+  'editor.trail': 'Ślad w czasie',
+  'editor.trail.all': 'Wszystkie punkty',
+  'editor.trail.hover': 'Przy najechaniu',
+  'editor.trail.off': 'Wyłączony',
+  'editor.trail_hours': 'Długość śladu (godziny)',
   'editor.zones': 'Strefy komfortu',
   'editor.zones.always': 'Zawsze',
   'editor.zones.hover': 'Przy najechaniu',
