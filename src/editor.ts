@@ -106,8 +106,8 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
     if (!this._config) return;
     const existing = new Set(this._customPresets.map((p) => p.name));
     let n = this._customPresets.length + 1;
-    let name = `${this._t('editor.point')} ${n}`;
-    while (existing.has(name)) name = `${this._t('editor.point')} ${++n}`;
+    let name = `Preset ${n}`;
+    while (existing.has(name)) name = `Preset ${++n}`;
     const base = getPresetProfile('general')!;
     const preset: CustomPreset = {
       name,
@@ -149,6 +149,13 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
         .filter((p) => p.name)
         .map((p) => ({ id: p.name, label: p.name, icon: 'mdi:tune-variant' })),
     ];
+  }
+
+  /** Native button styled like an HA button (mwc-button isn't reliably registered here). */
+  private _button(label: string, onClick: () => void): TemplateResult {
+    return html`<button type="button" class="ccc-btn" @click=${onClick}>
+      <ha-icon icon="mdi:plus"></ha-icon><span>${label}</span>
+    </button>`;
   }
 
   private _chip(label: string, icon: string, active: boolean, onClick: () => void): TemplateResult {
@@ -333,7 +340,7 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
         <div class="ccc-section-title">${this._t('editor.points')}</div>
         ${this._config.points.map((point, index) => this._renderPointEditor(point, index))}
 
-        <mwc-button raised @click=${this._addPoint}>${this._t('editor.add_point')}</mwc-button>
+        ${this._button(this._t('editor.add_point'), () => this._addPoint())}
       </div>
     `;
   }
@@ -364,9 +371,7 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
             )}
           </div>`,
         )}
-        <mwc-button outlined @click=${this._addCustomPreset}>
-          ${this._t('editor.add_custom_preset')}
-        </mwc-button>
+        ${this._button(this._t('editor.add_custom_preset'), () => this._addCustomPreset())}
       </div>
     `;
   }
@@ -447,9 +452,7 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
           : html`<div class="ccc-field">
               <div class="ccc-label">${this._t('editor.point_preset')}</div>
               ${this._renderPointModeChips(point, index)}
-              ${point.comfort
-                ? this._renderBandGrid(point.comfort, (p) => this._updatePoint(index, { comfort: p }))
-                : this._renderRangeHint(resolveProfile(point, this._config!))}
+              ${this._renderRangeHint(resolveProfile(point, this._config!))}
             </div>`}
 
         ${this._toggle(this._t('editor.include_in_scale'), point.include_in_scale !== false, (v) =>
@@ -462,7 +465,7 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
     `;
   }
 
-  /** Preset/custom chips for a point, plus a one-off "Custom" chip. */
+  /** Preset chips for a point (built-in + card custom presets, plus default). */
   private _renderPointModeChips(point: PointConfig, index: number): TemplateResult {
     const custom = !!point.comfort;
     const chips: TemplateResult[] = [
@@ -474,25 +477,8 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
           this._updatePoint(index, { preset: o.id, comfort: undefined }),
         ),
       ),
-      this._chip(this._t('editor.preset_custom'), 'mdi:tune', custom, () =>
-        this._updatePoint(index, { comfort: this._seedComfort(point) }),
-      ),
     ];
     return html`<div class="ccc-chips">${chips}</div>`;
-  }
-
-  private _seedComfort(point: PointConfig): ComfortProfile {
-    const base = resolveProfile(point, this._config!);
-    const clone = (b?: ComfortProfile['temperature']) =>
-      b
-        ? { preferred: { ...b.preferred }, acceptable: { ...b.acceptable } }
-        : { preferred: { min: 19, max: 23 }, acceptable: { min: 17, max: 25 } };
-    return {
-      temperature: clone(base.temperature),
-      humidity: base.humidity
-        ? { preferred: { ...base.humidity.preferred }, acceptable: { ...base.humidity.acceptable } }
-        : { preferred: { min: 40, max: 60 }, acceptable: { min: 30, max: 65 } },
-    };
   }
 
   static styles = css`
@@ -674,6 +660,30 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
     }
     .ccc-num:focus {
       padding-bottom: 5px;
+    }
+    .ccc-btn {
+      align-self: flex-start;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px 8px 12px;
+      border: 1px solid var(--primary-color, #03a9f4);
+      border-radius: 8px;
+      background: transparent;
+      color: var(--primary-color, #03a9f4);
+      font: inherit;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.1s ease;
+    }
+    .ccc-btn:hover {
+      background: var(--secondary-background-color, rgba(3, 169, 244, 0.08));
+    }
+    .ccc-btn ha-icon {
+      --mdc-icon-size: 18px;
+      width: 18px;
+      height: 18px;
     }
     .ccc-toggle {
       display: flex;
