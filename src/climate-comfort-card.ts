@@ -83,9 +83,16 @@ function parseSeries(raw: unknown[] | undefined): Sample[] {
 /**
  * Resample two independently-timed series into paired (temperature, humidity)
  * positions over the window, using the last-known value in each time bucket.
- * Consecutive identical positions are collapsed.
+ * Each position also carries the comfort colour it had then (evaluated against
+ * the point's profile). Consecutive identical positions are collapsed.
  */
-function buildTrail(temps: Sample[], hums: Sample[], startMs: number, endMs: number): TrailPoint[] {
+function buildTrail(
+  temps: Sample[],
+  hums: Sample[],
+  startMs: number,
+  endMs: number,
+  profile: ComfortProfile,
+): TrailPoint[] {
   const N = 40;
   const step = (endMs - startMs) / N;
   const pts: TrailPoint[] = [];
@@ -100,7 +107,8 @@ function buildTrail(temps: Sample[], hums: Sample[], startMs: number, endMs: num
     if (lastT === undefined || lastH === undefined) continue;
     const prev = pts[pts.length - 1];
     if (prev && prev.t === lastT && prev.h === lastH) continue;
-    pts.push({ t: lastT, h: lastH });
+    const ev = evaluatePoint({ name: '', profile, temperature: lastT, humidity: lastH });
+    pts.push({ t: lastT, h: lastH, color: colorForScore(ev.score) });
   }
   return pts;
 }
@@ -261,6 +269,7 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
         parseSeries(hist[point.humidity]),
         start.getTime(),
         end.getTime(),
+        resolveProfile(point, this._config?.preset),
       );
       this._trailCache.set(key, { points, at: Date.now() });
       this._trails = { ...this._trails, [index]: points };
@@ -447,9 +456,9 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
   }
 
   /** Group members, indexed, whose entities give a 2D position (for the hull). */
-  private _groupHull(resolved: ResolvedPoint[]): TrailPoint[] | undefined {
+  private _groupHull(resolved: ResolvedPoint[]): { t: number; h: number }[] | undefined {
     if (this._hoveredGroup === null) return undefined;
-    const pts: TrailPoint[] = [];
+    const pts: { t: number; h: number }[] = [];
     resolved.forEach((rp, i) => {
       if ((rp.config.group ?? UNGROUPED) !== this._hoveredGroup || this._hidden.has(i)) return;
       const t = rp.evaluation.temperature?.value;

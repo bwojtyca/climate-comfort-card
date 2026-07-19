@@ -169,28 +169,35 @@ function renderMoldRisk(scales: Scales): TemplateResult {
   </g>`;
 }
 
-/** One resampled position of a point in the past (temperature, humidity). */
+/** One resampled position of a point in the past, with the comfort colour it had then. */
 export interface TrailPoint {
   t: number;
   h: number;
+  color: string;
 }
 
 /**
- * Fading "comet" trail from oldest to newest position. Each segment gets a
- * higher opacity toward the present, so the direction of travel reads at a glance.
+ * Fading "comet" trail from oldest to newest position. Toward the present each
+ * segment gets more opacity and more width; its colour is the comfort colour
+ * the point actually had at that moment, so the path shows how it was doing
+ * along the way (red where it was bad, green where it was fine).
  */
 function renderTrail(trail: TrailPoint[], color: string, scales: Scales, animate: boolean): TemplateResult {
   const segs: TemplateResult[] = [];
   const coords: string[] = [];
+  const last = trail.length - 1;
   for (let i = 0; i < trail.length; i++) {
     coords.push(`${scales.x(trail[i].t).toFixed(1)},${scales.y(trail[i].h).toFixed(1)}`);
     if (i === 0) continue;
     const a = trail[i - 1];
     const b = trail[i];
-    const op = 0.1 + 0.65 * (i / (trail.length - 1));
+    const frac = i / last; // 0 oldest, 1 newest
+    const op = 0.12 + 0.6 * frac;
+    const w = 1 + 2 * frac; // ~1px oldest -> ~3px newest
     segs.push(svg`<line x1=${scales.x(a.t)} y1=${scales.y(a.h)}
       x2=${scales.x(b.t)} y2=${scales.y(b.h)}
-      stroke=${color} stroke-width="2" stroke-opacity=${op} stroke-linecap="round" />`);
+      stroke=${b.color} stroke-width=${w.toFixed(2)} stroke-opacity=${op.toFixed(2)}
+      stroke-linecap="round" />`);
   }
 
   // Playhead runs the path via a CSS motion path (offset-path). CSS survives
@@ -230,7 +237,7 @@ function convexHull(pts: [number, number][]): [number, number][] {
 }
 
 /** A soft blob connecting a group's points (drawn while its legend header is hovered). */
-function renderGroupHull(members: TrailPoint[], scales: Scales): TemplateResult {
+function renderGroupHull(members: { t: number; h: number }[], scales: Scales): TemplateResult {
   const screen = members.map((m): [number, number] => [scales.x(m.t), scales.y(m.h)]);
   if (screen.length < 2) return svg``;
   const cx = screen.reduce((s, p) => s + p[0], 0) / screen.length;
@@ -259,7 +266,7 @@ export interface RenderChartOptions {
   humAxis: Range;
   points: ChartPoint[];
   /** Member positions of the hovered group; draws a soft connecting blob. */
-  groupHull?: TrailPoint[];
+  groupHull?: { t: number; h: number }[];
   /** Fading history trails (oldest to newest), one per shown point. */
   trails?: { points: TrailPoint[]; color: string }[];
   /** Animate a playhead along each trail (off when the viewer prefers reduced motion). */
