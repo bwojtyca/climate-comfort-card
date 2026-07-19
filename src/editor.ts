@@ -328,6 +328,9 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
           point.include_in_scale !== false,
           (v) => this._updatePoint(index, { include_in_scale: v ? undefined : false }),
         )}
+        ${this._toggle(this._t('editor.reference'), !!point.reference, (v) =>
+          this._updatePoint(index, { reference: v || undefined }),
+        )}
       </div>
     `;
   }

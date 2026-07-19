@@ -26,6 +26,7 @@ const EN: Dict = {
   'status.bit_humid': 'A bit humid',
   'status.too_muggy': 'Too muggy',
   'status.bit_muggy': 'A bit muggy',
+  'status.reference': 'Reference',
 
   'label.dew_point': 'Dew point',
 
@@ -67,6 +68,7 @@ const EN: Dict = {
   'editor.humidity_entity': 'Humidity entity',
   'editor.point_preset': 'Preset',
   'editor.include_in_scale': 'Count toward axis scale',
+  'editor.reference': 'Reference point (no comfort rating)',
   'editor.use_default': 'Use default',
   'editor.remove': 'Remove',
   'editor.move_up': 'Move up',
@@ -95,6 +97,7 @@ const PL: Dict = {
   'status.bit_humid': 'Nieco wilgotno',
   'status.too_muggy': 'Zbyt parno',
   'status.bit_muggy': 'Nieco parno',
+  'status.reference': 'Punkt odniesienia',
 
   'label.dew_point': 'Punkt rosy',
 
@@ -136,6 +139,7 @@ const PL: Dict = {
   'editor.humidity_entity': 'Encja wilgotności',
   'editor.point_preset': 'Preset',
   'editor.include_in_scale': 'Uwzględniaj w skali osi',
+  'editor.reference': 'Punkt odniesienia (bez oceny komfortu)',
   'editor.use_default': 'Użyj domyślnego',
   'editor.remove': 'Usuń',
   'editor.move_up': 'Przesuń w górę',

@@ -66,6 +66,12 @@ export interface PointConfig {
    * the point is still plotted, clamped to the axis edge.
    */
   include_in_scale?: boolean;
+  /**
+   * Reference point: plotted for context but not comfort-rated. Shown neutral,
+   * with no status, and excluded from the comfort zone. Use for outdoor/attic
+   * where a comfort verdict is meaningless.
+   */
+  reference?: boolean;
 }
 
 export type ZoneMode = 'auto' | 'average' | 'hidden';

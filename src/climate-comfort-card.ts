@@ -17,6 +17,7 @@ import {
   DEFAULT_TEMPERATURE_AXIS,
   HUMIDITY_PADDING,
   PADDING_FACTOR,
+  REFERENCE_COLOR,
   TEMPERATURE_PADDING,
   UNAVAILABLE_COLOR,
 } from './const';
@@ -55,6 +56,7 @@ interface ResolvedPoint {
   profile: ComfortProfile;
   evaluation: PointEvaluation;
   color: string;
+  reference: boolean;
 }
 
 /** Sentinel key for points without a group, so "Ungrouped" can be hovered too. */
@@ -92,6 +94,7 @@ function buildTrail(
   startMs: number,
   endMs: number,
   profile: ComfortProfile,
+  reference: boolean,
 ): TrailPoint[] {
   const N = 40;
   const step = (endMs - startMs) / N;
@@ -107,8 +110,10 @@ function buildTrail(
     if (lastT === undefined || lastH === undefined) continue;
     const prev = pts[pts.length - 1];
     if (prev && prev.t === lastT && prev.h === lastH) continue;
-    const ev = evaluatePoint({ name: '', profile, temperature: lastT, humidity: lastH });
-    pts.push({ t: lastT, h: lastH, color: colorForScore(ev.score) });
+    const color = reference
+      ? REFERENCE_COLOR
+      : colorForScore(evaluatePoint({ name: '', profile, temperature: lastT, humidity: lastH }).score);
+    pts.push({ t: lastT, h: lastH, color });
   }
   return pts;
 }
@@ -187,10 +192,15 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
         temperature,
         humidity,
       });
+      const reference = !!point.reference;
       const color =
         point.color ??
-        (evaluation.unavailable ? UNAVAILABLE_COLOR : colorForScore(evaluation.score));
-      return { config: point, profile, evaluation, color };
+        (evaluation.unavailable
+          ? UNAVAILABLE_COLOR
+          : reference
+            ? REFERENCE_COLOR
+            : colorForScore(evaluation.score));
+      return { config: point, profile, evaluation, color, reference };
     });
   }
 
@@ -202,8 +212,9 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
     return entity ?? '-';
   }
 
-  private _overallLabel(ev: PointEvaluation): string {
+  private _overallLabel(ev: PointEvaluation, reference = false): string {
     if (ev.unavailable) return this._t('card.unavailable');
+    if (reference) return this._t('status.reference');
     const issues: string[] = [];
     for (const dim of [ev.temperature, ev.humidity, ev.dewPoint]) {
       if (dim && dim.status !== 'comfortable') {
@@ -270,6 +281,7 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
         start.getTime(),
         end.getTime(),
         resolveProfile(point, this._config?.preset),
+        !!point.reference,
       );
       this._trailCache.set(key, { points, at: Date.now() });
       this._trails = { ...this._trails, [index]: points };
@@ -428,7 +440,7 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
     }
 
     const profiles = resolved
-      .filter((rp, i) => !rp.evaluation.unavailable && !this._hidden.has(i))
+      .filter((rp, i) => !rp.evaluation.unavailable && !this._hidden.has(i) && !rp.reference)
       .map((rp) => rp.profile)
       .filter((p) => p.temperature || p.humidity);
     const zone = profiles.length ? averageProfiles(profiles) : undefined;
@@ -437,19 +449,26 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
   }
 
   private _renderTooltip(rp: ResolvedPoint): TemplateResult {
-    const { evaluation } = rp;
+    const { evaluation, reference } = rp;
     const row = (e: DimensionEvaluation | undefined, unit: string, prefix?: string) => {
       if (!e) return nothing;
       return html`<div class="ccc-tt-row">
-        <span class="ccc-swatch" style=${`background:${colorForScore(e.score)}`}></span>
+        <span
+          class="ccc-swatch"
+          style=${`background:${reference ? rp.color : colorForScore(e.score)}`}
+        ></span>
         <span
           >${prefix ? html`<span class="ccc-tt-dim">${prefix}</span> ` : nothing}${e.value}${unit}</span
         >
-        <span class="ccc-tt-status">${this._t(statusKey(e))}</span>
+        ${reference ? nothing : html`<span class="ccc-tt-status">${this._t(statusKey(e))}</span>`}
       </div>`;
     };
     return html`<div class="ccc-tooltip">
-      <div class="ccc-tt-name">${evaluation.name}</div>
+      <div class="ccc-tt-name">
+        ${evaluation.name}${reference
+          ? html`<span class="ccc-tt-ref">${this._t('status.reference')}</span>`
+          : nothing}
+      </div>
       ${row(evaluation.temperature, '°C')}
       ${row(evaluation.humidity, '%')}
       ${row(evaluation.dewPoint, '°C', this._t('label.dew_point'))}
@@ -488,7 +507,7 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
 
   private _renderBadge(rp: ResolvedPoint, index: number): TemplateResult {
     const hidden = this._hidden.has(index);
-    const label = this._overallLabel(rp.evaluation);
+    const label = this._overallLabel(rp.evaluation, rp.reference);
     const groupHover =
       this._hoveredGroup !== null && (rp.config.group ?? UNGROUPED) === this._hoveredGroup;
     return html`<button
@@ -647,6 +666,12 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
     }
     .ccc-tt-dim {
       color: var(--secondary-text-color, #888);
+    }
+    .ccc-tt-ref {
+      margin-left: 6px;
+      font-weight: 400;
+      font-size: 10.5px;
+      color: var(--ccc-reference-color, #7c8b99);
     }
     .ccc-legend {
       margin-top: 10px;

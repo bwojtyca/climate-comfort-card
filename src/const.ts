@@ -2,7 +2,7 @@ import type { Range } from './types';
 
 export const CARD_NAME = 'climate-comfort-card';
 export const EDITOR_NAME = 'climate-comfort-card-editor';
-export const CARD_VERSION = '0.2.1-beta.6';
+export const CARD_VERSION = '0.2.1-beta.7';
 
 /** Fallback axis ranges when auto-scaling has nothing to work with. */
 export const DEFAULT_TEMPERATURE_AXIS: Range = { min: 10, max: 32 };
@@ -44,6 +44,9 @@ export const GROUP_HULL_STROKE = 'var(--ccc-group-stroke, rgba(120, 140, 170, 0.
 
 /** Colour for points whose entities are unavailable. */
 export const UNAVAILABLE_COLOR = 'var(--disabled-text-color, #9e9e9e)';
+
+/** Colour for reference points (context, not comfort-rated). */
+export const REFERENCE_COLOR = 'var(--ccc-reference-color, #7c8b99)';
 
 /** Comfort-zone fill/stroke. Green = the "good" status hue; theme-invariant so
  *  the soft field reads the same on light and dark HA themes. */

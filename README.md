@@ -92,6 +92,7 @@ Each **point**:
 | `group` | string | Group name; points sharing it are grouped and filterable in the legend. |
 | `color` | string | Override the marker colour. |
 | `include_in_scale` | boolean | Whether this point stretches the auto-scaled axes (default true). |
+| `reference` | boolean | Plot as context only, not comfort-rated (neutral, excluded from the zone). For outdoor/attic. |
 
 ## Presets
 
