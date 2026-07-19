@@ -161,12 +161,6 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
     return html`<ha-button class="ccc-add" raised @click=${onClick}>${label}</ha-button>`;
   }
 
-  private _chip(label: string, icon: string, active: boolean, onClick: () => void): TemplateResult {
-    return html`<button type="button" class="ccc-chip ${active ? 'is-active' : ''}" @click=${onClick}>
-      <ha-icon icon=${icon}></ha-icon><span>${label}</span>
-    </button>`;
-  }
-
   private _renderRangeHint(profile: ComfortProfile): TemplateResult | typeof nothing {
     const parts: string[] = [];
     const t = profile.temperature?.acceptable;
@@ -279,6 +273,24 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
     });
   }
 
+  /** Native HA dropdown via ha-form's select selector. */
+  private _select(opts: {
+    label: string;
+    value: string;
+    options: { value: string; label: string }[];
+    helper?: string;
+    onChange: (value: string) => void;
+  }): TemplateResult {
+    return this._formField({
+      name: 'v',
+      selector: { select: { mode: 'dropdown', options: opts.options } },
+      label: opts.label,
+      value: opts.value,
+      helper: opts.helper,
+      onChange: (v) => opts.onChange((v as string) ?? ''),
+    });
+  }
+
   private _defaultName(point: PointConfig): string {
     const entity = point.temperature || point.humidity;
     if (entity && this.hass?.states[entity]) {
@@ -298,40 +310,28 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
           onInput: (v) => this._updateRoot({ title: v || undefined }),
         })}
 
-        <div class="ccc-field">
-          <div class="ccc-label">${this._t('editor.default_preset')}</div>
-          <div class="ccc-chips">
-            ${this._presetOptions().map((o) =>
-              this._chip(o.label, o.icon, this._config!.preset === o.id, () =>
-                this._updateRoot({ preset: o.id }),
-              ),
-            )}
-          </div>
-        </div>
+        ${this._select({
+          label: this._t('editor.default_preset'),
+          value: this._config.preset ?? '',
+          options: this._presetOptions().map((o) => ({ value: o.id, label: o.label })),
+          onChange: (v) => this._updateRoot({ preset: v || undefined }),
+        })}
 
         ${this._renderCustomPresets()}
 
-        <div class="ccc-field">
-          <div class="ccc-label">${this._t('editor.zones')}</div>
-          <div class="ccc-chips">
-            ${ZONE_DISPLAYS.map(({ id, icon }) =>
-              this._chip(this._t(`editor.zones.${id}`), icon, (this._config!.zone_display ?? 'always') === id, () =>
-                this._updateRoot({ zone_display: id }),
-              ),
-            )}
-          </div>
-        </div>
+        ${this._select({
+          label: this._t('editor.zones'),
+          value: this._config.zone_display ?? 'always',
+          options: ZONE_DISPLAYS.map((z) => ({ value: z.id, label: this._t(`editor.zones.${z.id}`) })),
+          onChange: (v) => this._updateRoot({ zone_display: v as ZoneDisplay }),
+        })}
 
-        <div class="ccc-field">
-          <div class="ccc-label">${this._t('editor.trail')}</div>
-          <div class="ccc-chips">
-            ${TRAIL_DISPLAYS.map(({ id, icon }) =>
-              this._chip(this._t(`editor.trail.${id}`), icon, (this._config!.trail_display ?? 'hover') === id, () =>
-                this._updateRoot({ trail_display: id }),
-              ),
-            )}
-          </div>
-        </div>
+        ${this._select({
+          label: this._t('editor.trail'),
+          value: this._config.trail_display ?? 'hover',
+          options: TRAIL_DISPLAYS.map((z) => ({ value: z.id, label: this._t(`editor.trail.${z.id}`) })),
+          onChange: (v) => this._updateRoot({ trail_display: v as TrailDisplay }),
+        })}
 
         ${(this._config.trail_display ?? 'hover') !== 'off'
           ? this._formField({
@@ -482,11 +482,18 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
 
         ${point.reference
           ? nothing
-          : html`<div class="ccc-field">
-              <div class="ccc-label">${this._t('editor.point_preset')}</div>
-              ${this._renderPointModeChips(point, index)}
+          : html`
+              ${this._select({
+                label: this._t('editor.point_preset'),
+                value: point.comfort ? '' : point.preset ?? '',
+                options: [
+                  { value: '', label: this._t('editor.use_default') },
+                  ...this._presetOptions().map((o) => ({ value: o.id, label: o.label })),
+                ],
+                onChange: (v) => this._updatePoint(index, { preset: v || undefined, comfort: undefined }),
+              })}
               ${this._renderRangeHint(resolveProfile(point, this._config!))}
-            </div>`}
+            `}
 
         ${this._toggle(this._t('editor.include_in_scale'), point.include_in_scale !== false, (v) =>
           this._updatePoint(index, { include_in_scale: v ? undefined : false }),
@@ -496,22 +503,6 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
         )}
       </div>
     `;
-  }
-
-  /** Preset chips for a point (built-in + card custom presets, plus default). */
-  private _renderPointModeChips(point: PointConfig, index: number): TemplateResult {
-    const custom = !!point.comfort;
-    const chips: TemplateResult[] = [
-      this._chip(this._t('editor.use_default'), 'mdi:home-outline', !custom && !point.preset, () =>
-        this._updatePoint(index, { preset: undefined, comfort: undefined }),
-      ),
-      ...this._presetOptions().map((o) =>
-        this._chip(o.label, o.icon, !custom && point.preset === o.id, () =>
-          this._updatePoint(index, { preset: o.id, comfort: undefined }),
-        ),
-      ),
-    ];
-    return html`<div class="ccc-chips">${chips}</div>`;
   }
 
   static styles = css`
@@ -607,42 +598,6 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
       border-bottom: 2px solid var(--mdc-theme-primary, var(--primary-color, #03a9f4));
     }
 
-    .ccc-chips {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-    }
-    .ccc-chip {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      padding: 5px 10px 5px 8px;
-      border: 1px solid var(--divider-color, #d0d0d0);
-      border-radius: 16px;
-      background: var(--card-background-color, #fff);
-      color: var(--primary-text-color, #333);
-      font-size: 13px;
-      font-family: inherit;
-      cursor: pointer;
-      transition: background 0.1s ease, border-color 0.1s ease;
-    }
-    .ccc-chip:hover {
-      background: var(--secondary-background-color, #f0f0f0);
-    }
-    /* Selected = tonal (translucent accent), so a chip reads as a choice, not a button. */
-    .ccc-chip.is-active {
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.16);
-      border-color: var(--primary-color, #03a9f4);
-      color: var(--primary-color, #03a9f4);
-    }
-    .ccc-chip.is-active ha-icon {
-      color: var(--primary-color, #03a9f4);
-    }
-    .ccc-chip ha-icon {
-      --mdc-icon-size: 18px;
-      width: 18px;
-      height: 18px;
-    }
     .ccc-range-hint {
       font-size: 12px;
       color: var(--secondary-text-color, #888);
