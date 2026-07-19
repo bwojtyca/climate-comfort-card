@@ -179,7 +179,7 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
   private _resolvePoints(): ResolvedPoint[] {
     if (!this._config || !this.hass) return [];
     return this._config.points.map((point) => {
-      const profile = resolveProfile(point, this._config!.preset);
+      const profile = resolveProfile(point, this._config!);
       const temperature = point.temperature
         ? toNumber(this.hass!.states[point.temperature]?.state)
         : undefined;
@@ -280,7 +280,7 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
         parseSeries(hist[point.humidity]),
         start.getTime(),
         end.getTime(),
-        resolveProfile(point, this._config?.preset),
+        resolveProfile(point, this._config!),
         !!point.reference,
       );
       this._trailCache.set(key, { points, at: Date.now() });

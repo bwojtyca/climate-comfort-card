@@ -71,7 +71,8 @@ points:
 | --- | --- | --- | --- |
 | `title` | string | – | Card header. |
 | `points` | list | `[]` | Rooms to plot (see below). |
-| `preset` | string | `living_room` | Default preset for points without their own. |
+| `preset` | string | `living_room` | Default preset for points without their own (built-in id or a custom preset name). |
+| `custom_presets` | list | – | Reusable named profiles, selectable per point. Each: `{name, temperature, humidity[, dewPoint]}` with `{preferred:{min,max}, acceptable:{min,max}}` bands. Managed in the editor. |
 | `zone_mode` | `auto` \| `average` \| `hidden` | `auto` | How comfort zones are combined for mixed presets. |
 | `zone_display` | `always` \| `hover` \| `hidden` | `always` | Show comfort zones all the time, only for the hovered point, or never. |
 | `show_legend` | boolean | `true` | Show the per-room legend under the chart. |

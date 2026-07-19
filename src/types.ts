@@ -74,6 +74,14 @@ export interface PointConfig {
   reference?: boolean;
 }
 
+/** A reusable comfort profile defined at card level and picked by name per point. */
+export interface CustomPreset {
+  name: string;
+  temperature?: { preferred: Range; acceptable: Range };
+  humidity?: { preferred: Range; acceptable: Range };
+  dewPoint?: { preferred: Range; acceptable: Range };
+}
+
 export type ZoneMode = 'auto' | 'average' | 'hidden';
 
 /** When comfort zones are drawn: always, only on hover, or never. */
@@ -89,6 +97,8 @@ export interface ClimateComfortCardConfig extends LovelaceCardConfig {
   points: PointConfig[];
   /** Default preset for points that don't declare their own. */
   preset?: PresetId;
+  /** Reusable comfort profiles defined on the card, selectable per point by name. */
+  custom_presets?: CustomPreset[];
   /** X-axis (temperature) range in °C. */
   temperature_axis?: Range;
   /** Y-axis (humidity) range in %. */

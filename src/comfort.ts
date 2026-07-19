@@ -1,5 +1,6 @@
 import type {
   ComfortProfile,
+  CustomPreset,
   Dimension,
   DimensionEvaluation,
   DimensionStatus,
@@ -21,14 +22,26 @@ export function worseSeverity(a: Severity, b: Severity): Severity {
  * Resolve the comfort profile for a point: an explicit `comfort` override wins,
  * otherwise the point's preset, otherwise the card-level default preset.
  */
-export function resolveProfile(
-  point: PointConfig,
-  cardPreset: string | undefined,
-): ComfortProfile {
+export interface ProfileContext {
+  preset?: string;
+  custom_presets?: CustomPreset[];
+}
+
+/** Look up a preset id/name against card custom presets first, then built-ins. */
+function lookupPreset(id: string | undefined, ctx: ProfileContext): ComfortProfile | undefined {
+  if (!id) return undefined;
+  const custom = ctx.custom_presets?.find((p) => p.name === id);
+  if (custom) {
+    return { temperature: custom.temperature, humidity: custom.humidity, dewPoint: custom.dewPoint };
+  }
+  return getPresetProfile(id);
+}
+
+export function resolveProfile(point: PointConfig, ctx: ProfileContext): ComfortProfile {
   const base =
     point.comfort ??
-    getPresetProfile(point.preset) ??
-    getPresetProfile(cardPreset) ??
+    lookupPreset(point.preset, ctx) ??
+    lookupPreset(ctx.preset, ctx) ??
     getPresetProfile(DEFAULT_PRESET) ??
     {};
   return withDewPointDefault(base);
