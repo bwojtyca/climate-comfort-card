@@ -156,11 +156,9 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
     ];
   }
 
-  /** Native filled button (mwc-button/ha-button aren't reliably registered here). */
+  /** HA's own button, the same element the edit-card dialog uses for its actions. */
   private _button(label: string, onClick: () => void): TemplateResult {
-    return html`<button type="button" class="ccc-btn" @click=${onClick}>
-      <ha-icon icon="mdi:plus"></ha-icon><span>${label}</span>
-    </button>`;
+    return html`<ha-button class="ccc-add" raised @click=${onClick}>${label}</ha-button>`;
   }
 
   private _chip(label: string, icon: string, active: boolean, onClick: () => void): TemplateResult {
@@ -527,32 +525,9 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
       display: block;
       width: 100%;
     }
-    /* Filled "contained" button, distinct from the tonal selection chips. */
-    .ccc-btn {
+    ha-button.ccc-add {
       align-self: flex-start;
       margin-top: 4px;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 9px 18px 9px 14px;
-      border: none;
-      border-radius: 8px;
-      background: var(--primary-color, #03a9f4);
-      color: var(--text-primary-color, #fff);
-      font: inherit;
-      font-size: 14px;
-      font-weight: 500;
-      letter-spacing: 0.03em;
-      cursor: pointer;
-      transition: filter 0.1s ease;
-    }
-    .ccc-btn:hover {
-      filter: brightness(1.08);
-    }
-    .ccc-btn ha-icon {
-      --mdc-icon-size: 18px;
-      width: 18px;
-      height: 18px;
     }
     .ccc-section-title {
       font-weight: 600;
