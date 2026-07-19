@@ -30,6 +30,26 @@ const TRAIL_DISPLAYS: { id: TrailDisplay; icon: string }[] = [
   { id: 'off', icon: 'mdi:close' },
 ];
 
+/**
+ * HA lazy-loads its form components (ha-textfield, mwc-button, ...); in a custom
+ * card editor they may not be registered yet, so we nudge HA to load them by
+ * instantiating the built-in entities-card editor once. Until they're defined,
+ * the editor falls back to native controls.
+ */
+let _haComponentsLoaded = false;
+async function loadHaComponents(): Promise<void> {
+  if (_haComponentsLoaded) return;
+  _haComponentsLoaded = true;
+  if (customElements.get('ha-textfield') && customElements.get('mwc-button')) return;
+  try {
+    const helpers = await (window as any).loadCardHelpers?.();
+    const el = await helpers?.createCardElement?.({ type: 'entities', entities: [] });
+    await (el?.constructor as any)?.getConfigElement?.();
+  } catch {
+    /* stay on native fallback controls */
+  }
+}
+
 const ICON_UP = 'M7.41,15.41L12,10.83L16.59,15.41L18,14L12,8L6,14L7.41,15.41Z';
 const ICON_DOWN = 'M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z';
 const ICON_DELETE =
@@ -41,9 +61,16 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
   @state() private _config?: ClimateComfortCardConfig;
   /** Index of the currently expanded point (accordion), or null when all collapsed. */
   @state() private _expanded: number | null = null;
+  /** Index of the currently expanded custom preset (accordion). */
+  @state() private _expandedPreset: number | null = null;
 
   public setConfig(config: ClimateComfortCardConfig): void {
     this._config = { ...config, points: config.points ?? [] };
+  }
+
+  protected async firstUpdated(): Promise<void> {
+    await loadHaComponents();
+    this.requestUpdate(); // re-render once ha-textfield / mwc-button are available
   }
 
   private get _lang(): string {
@@ -114,10 +141,13 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
       temperature: { preferred: { ...base.temperature!.preferred }, acceptable: { ...base.temperature!.acceptable } },
       humidity: { preferred: { ...base.humidity!.preferred }, acceptable: { ...base.humidity!.acceptable } },
     };
+    this._expandedPreset = this._customPresets.length;
     this._updateRoot({ custom_presets: [...this._customPresets, preset] });
   }
 
   private _removeCustomPreset(index: number): void {
+    if (this._expandedPreset === index) this._expandedPreset = null;
+    else if (this._expandedPreset !== null && this._expandedPreset > index) this._expandedPreset -= 1;
     this._updateRoot({ custom_presets: this._customPresets.filter((_, i) => i !== index) });
   }
 
@@ -151,8 +181,11 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
     ];
   }
 
-  /** Native button styled like an HA button (mwc-button isn't reliably registered here). */
+  /** HA button when available, else a native styled fallback. */
   private _button(label: string, onClick: () => void): TemplateResult {
+    if (customElements.get('mwc-button')) {
+      return html`<mwc-button raised class="ccc-add" @click=${onClick}>${label}</mwc-button>`;
+    }
     return html`<button type="button" class="ccc-btn" @click=${onClick}>
       <ha-icon icon="mdi:plus"></ha-icon><span>${label}</span>
     </button>`;
@@ -248,6 +281,17 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
     helper?: string;
     onInput: (value: string) => void;
   }): TemplateResult {
+    if (customElements.get('ha-textfield')) {
+      return html`<ha-textfield
+        class="ccc-tf"
+        .label=${opts.label}
+        .value=${opts.value}
+        .placeholder=${opts.placeholder ?? ''}
+        .helper=${opts.helper ?? ''}
+        .helperPersistent=${!!opts.helper}
+        @input=${(e: Event) => opts.onInput((e.target as HTMLInputElement).value)}
+      ></ha-textfield>`;
+    }
     return html`<div class="ccc-field">
       <div class="ccc-label">${opts.label}</div>
       <input
@@ -349,29 +393,41 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
     return html`
       <div class="ccc-field">
         <div class="ccc-label">${this._t('editor.custom_presets')}</div>
-        ${this._customPresets.map(
-          (cp, i) => html`<div class="ccc-preset-block">
-            <div class="ccc-inline">
-              <div class="grow">
-                ${this._textField({
-                  label: this._t('editor.preset_name'),
-                  value: cp.name,
-                  onInput: (v) => this._renameCustomPreset(i, v),
-                })}
-              </div>
-              <ha-icon-button
-                .path=${ICON_DELETE}
-                title=${this._t('editor.remove')}
-                @click=${() => this._removeCustomPreset(i)}
-              ></ha-icon-button>
-            </div>
-            ${this._renderBandGrid(
-              { temperature: cp.temperature, humidity: cp.humidity, dewPoint: cp.dewPoint },
-              (p) => this._updateCustomPresetProfile(i, p),
-            )}
-          </div>`,
-        )}
+        ${this._customPresets.map((cp, i) => this._renderPresetAccordion(cp, i))}
         ${this._button(this._t('editor.add_custom_preset'), () => this._addCustomPreset())}
+      </div>
+    `;
+  }
+
+  private _renderPresetAccordion(cp: CustomPreset, i: number): TemplateResult {
+    const expanded = this._expandedPreset === i;
+    const title = cp.name || `Preset ${i + 1}`;
+    return html`
+      <div class="ccc-point ${expanded ? 'is-open' : ''}">
+        <div class="ccc-point-head" @click=${() => (this._expandedPreset = expanded ? null : i)}>
+          <ha-icon class="ccc-caret" icon="mdi:chevron-right"></ha-icon>
+          <span class="ccc-point-title">${title}</span>
+          <div class="ccc-point-tools" @click=${(e: Event) => e.stopPropagation()}>
+            <ha-icon-button
+              .path=${ICON_DELETE}
+              title=${this._t('editor.remove')}
+              @click=${() => this._removeCustomPreset(i)}
+            ></ha-icon-button>
+          </div>
+        </div>
+        ${expanded
+          ? html`<div class="ccc-point-body">
+              ${this._textField({
+                label: this._t('editor.preset_name'),
+                value: cp.name,
+                onInput: (v) => this._renameCustomPreset(i, v),
+              })}
+              ${this._renderBandGrid(
+                { temperature: cp.temperature, humidity: cp.humidity, dewPoint: cp.dewPoint },
+                (p) => this._updateCustomPresetProfile(i, p),
+              )}
+            </div>`
+          : nothing}
       </div>
     `;
   }
@@ -487,8 +543,12 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
       flex-direction: column;
       gap: 12px;
     }
-    ha-entity-picker {
+    ha-entity-picker,
+    ha-textfield.ccc-tf {
       width: 100%;
+    }
+    mwc-button.ccc-add {
+      align-self: flex-start;
     }
     .ccc-section-title {
       font-weight: 600;
