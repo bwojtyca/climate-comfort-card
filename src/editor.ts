@@ -455,25 +455,20 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
   private _renderPointBody(point: PointConfig, index: number): TemplateResult {
     return html`
       <div class="ccc-body">
-        <ha-entity-picker
-          label=${this._t('editor.temperature_entity')}
-          .hass=${this.hass}
-          .value=${point.temperature ?? ''}
-          .includeDomains=${['sensor', 'climate', 'number', 'input_number']}
-          allow-custom-entity
-          @value-changed=${(e: CustomEvent) =>
-            this._updatePoint(index, { temperature: e.detail.value || undefined })}
-        ></ha-entity-picker>
-
-        <ha-entity-picker
-          label=${this._t('editor.humidity_entity')}
-          .hass=${this.hass}
-          .value=${point.humidity ?? ''}
-          .includeDomains=${['sensor', 'number', 'input_number']}
-          allow-custom-entity
-          @value-changed=${(e: CustomEvent) =>
-            this._updatePoint(index, { humidity: e.detail.value || undefined })}
-        ></ha-entity-picker>
+        ${this._formField({
+          name: 'v',
+          selector: { entity: { domain: ['sensor', 'climate', 'number', 'input_number'] } },
+          label: this._t('editor.temperature_entity'),
+          value: point.temperature ?? '',
+          onChange: (v) => this._updatePoint(index, { temperature: (v as string) || undefined }),
+        })}
+        ${this._formField({
+          name: 'v',
+          selector: { entity: { domain: ['sensor', 'number', 'input_number'] } },
+          label: this._t('editor.humidity_entity'),
+          value: point.humidity ?? '',
+          onChange: (v) => this._updatePoint(index, { humidity: (v as string) || undefined }),
+        })}
 
         ${this._textField({
           label: this._t('editor.point_name'),
@@ -519,7 +514,6 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
       flex-direction: column;
       gap: 12px;
     }
-    ha-entity-picker,
     ha-form {
       display: block;
       width: 100%;
