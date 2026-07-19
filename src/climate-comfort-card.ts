@@ -465,7 +465,7 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
       const h = rp.evaluation.humidity?.value;
       if (t !== undefined && h !== undefined) pts.push({ t, h });
     });
-    return pts.length > 1 ? pts : undefined;
+    return pts.length ? pts : undefined;
   }
 
   private _toggleHidden(index: number): void {

@@ -259,27 +259,27 @@ function roundedPolygonPath(pts: [number, number][], radius: number): string {
   return d + 'Z';
 }
 
-/** A soft blob connecting a group's points (drawn while its legend header is hovered). */
+/**
+ * A soft blob enclosing a group's points. Rather than hull the points directly
+ * (which degenerates to a line for two or collinear points), we expand each
+ * point into a small square and hull all the corners. One code path then covers
+ * any count: a single point becomes a rounded square, and collinear points a
+ * rounded capsule.
+ */
 function renderGroupHull(members: { t: number; h: number }[], scales: Scales): TemplateResult {
-  const screen = members.map((m): [number, number] => [scales.x(m.t), scales.y(m.h)]);
-  if (screen.length < 2) return svg``;
-  const cx = screen.reduce((s, p) => s + p[0], 0) / screen.length;
-  const cy = screen.reduce((s, p) => s + p[1], 0) / screen.length;
-  const PAD = 14;
-  const grow = (p: [number, number]): [number, number] => {
-    const dx = p[0] - cx;
-    const dy = p[1] - cy;
-    const d = Math.hypot(dx, dy) || 1;
-    return [p[0] + (dx / d) * PAD, p[1] + (dy / d) * PAD];
-  };
-  const hull = (screen.length === 2 ? screen : convexHull(screen)).map(grow);
-  const shape =
-    screen.length === 2
-      ? svg`<line x1=${hull[0][0]} y1=${hull[0][1]} x2=${hull[1][0]} y2=${hull[1][1]}
-          stroke=${GROUP_HULL_STROKE} stroke-width="10" stroke-linecap="round" opacity="0.5" />`
-      : svg`<path d=${roundedPolygonPath(hull, 8)} fill=${GROUP_HULL_FILL}
-          stroke=${GROUP_HULL_STROKE} stroke-width="1.5" stroke-linejoin="round" />`;
-  return svg`<g clip-path="url(#ccc-plot-clip)">${shape}</g>`;
+  const PAD = 15;
+  const corners: [number, number][] = [];
+  for (const m of members) {
+    const x = scales.x(m.t);
+    const y = scales.y(m.h);
+    corners.push([x - PAD, y - PAD], [x + PAD, y - PAD], [x + PAD, y + PAD], [x - PAD, y + PAD]);
+  }
+  if (corners.length < 3) return svg``;
+  const d = roundedPolygonPath(convexHull(corners), 10);
+  return svg`<g clip-path="url(#ccc-plot-clip)">
+    <path d=${d} fill=${GROUP_HULL_FILL} stroke=${GROUP_HULL_STROKE}
+      stroke-width="1.5" stroke-linejoin="round" />
+  </g>`;
 }
 
 export interface RenderChartOptions {
@@ -356,7 +356,7 @@ export function renderChart(o: RenderChartOptions): TemplateResult {
       ${o.moldRisk ? renderMoldRisk(scales) : nothing}
 
       <!-- soft blob for the hovered group -->
-      ${o.groupHull && o.groupHull.length > 1 ? renderGroupHull(o.groupHull, scales) : nothing}
+      ${o.groupHull && o.groupHull.length >= 1 ? renderGroupHull(o.groupHull, scales) : nothing}
 
       <!-- history trails -->
       ${(o.trails ?? [])
