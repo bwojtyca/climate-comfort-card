@@ -1,6 +1,6 @@
 {
   "name": "climate-comfort-card",
-  "version": "0.2.1-beta.5",
+  "version": "0.2.1-beta.6",
   "description": "A Home Assistant Lovelace card that plots temperature/humidity points on a comfort chart with per-room comfort zones and status evaluation.",
   "type": "module",
   "main": "dist/climate-comfort-card.js",

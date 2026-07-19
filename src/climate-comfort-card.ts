@@ -347,6 +347,7 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
               moldRisk: this._config.mold_risk !== false,
               onHover: (i) => (this._hovered = i),
               onSelect: (i) => (this._hovered = i),
+              onClear: () => (this._hovered = null),
             })}
             ${hoveredResolved ? this._renderTooltip(hoveredResolved) : nothing}
           </div>
@@ -496,8 +497,8 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
         groupHover ? 'is-grouphover' : ''
       } ${hidden ? 'is-off' : ''} ${rp.evaluation.unavailable ? 'is-unavailable' : ''}"
       title=${`${rp.evaluation.name} - ${label}`}
-      @mouseenter=${() => (this._hovered = index)}
-      @mouseleave=${() => (this._hovered = null)}
+      @pointerenter=${(e: PointerEvent) => e.pointerType === 'mouse' && (this._hovered = index)}
+      @pointerleave=${(e: PointerEvent) => e.pointerType === 'mouse' && (this._hovered = null)}
       @focus=${() => (this._hovered = index)}
       @blur=${() => (this._hovered = null)}
       @click=${() => this._toggleHidden(index)}
@@ -541,8 +542,10 @@ export class ClimateComfortCard extends LitElement implements LovelaceCard {
             type="button"
             class="ccc-group-head ${visible === 0 ? 'is-off' : ''}"
             @click=${() => this._toggleGroup(indices)}
-            @mouseenter=${() => (this._hoveredGroup = g ?? UNGROUPED)}
-            @mouseleave=${() => (this._hoveredGroup = null)}
+            @pointerenter=${(e: PointerEvent) =>
+              e.pointerType === 'mouse' && (this._hoveredGroup = g ?? UNGROUPED)}
+            @pointerleave=${(e: PointerEvent) =>
+              e.pointerType === 'mouse' && (this._hoveredGroup = null)}
           >
             <span class="ccc-group-name">${g ?? this._t('legend.ungrouped')}</span>
             <span class="ccc-group-count">${visible}/${indices.length}</span>

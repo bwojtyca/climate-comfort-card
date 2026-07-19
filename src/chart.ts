@@ -316,6 +316,8 @@ export interface RenderChartOptions {
   moldRisk?: boolean;
   onHover: (index: number | null) => void;
   onSelect: (index: number) => void;
+  /** Tapping empty chart space clears the selection (touch-friendly). */
+  onClear: () => void;
 }
 
 export function renderChart(o: RenderChartOptions): TemplateResult {
@@ -327,7 +329,8 @@ export function renderChart(o: RenderChartOptions): TemplateResult {
 
   return svg`
     <svg viewBox="0 0 ${layout.width} ${layout.height}" class="ccc-chart"
-      role="img" preserveAspectRatio="xMidYMid meet">
+      role="img" preserveAspectRatio="xMidYMid meet"
+      @click=${() => o.onClear()}>
       <defs>
         <filter id="ccc-blur" x="-20%" y="-20%" width="140%" height="140%">
           <feGaussianBlur stdDeviation=${ZONE_BLUR} />
@@ -420,12 +423,15 @@ function renderPoint(p: ChartPoint, scales: Scales, o: RenderChartOptions): Temp
   }
 
   const hovered = p.index === o.hoveredIndex;
-  const r = hovered ? 8 : 6;
+  const r = hovered ? 9 : 6; // slightly bigger touch target when active
 
   return svg`<g class="ccc-point ${hovered ? 'is-hovered' : ''}"
-    @mouseenter=${() => o.onHover(p.index)}
-    @mouseleave=${() => o.onHover(null)}
-    @click=${() => o.onSelect(p.index)}
+    @pointerenter=${(e: PointerEvent) => e.pointerType === 'mouse' && o.onHover(p.index)}
+    @pointerleave=${(e: PointerEvent) => e.pointerType === 'mouse' && o.onHover(null)}
+    @click=${(e: Event) => {
+      e.stopPropagation();
+      o.onSelect(p.index);
+    }}
     @focus=${() => o.onHover(p.index)}
     @blur=${() => o.onHover(null)}
     tabindex="0" role="button">
