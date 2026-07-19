@@ -11,10 +11,12 @@ import type {
   TrailDisplay,
   ZoneDisplay,
 } from './types';
-import { EDITOR_NAME } from './const';
+import { DEFAULT_DEWPOINT, EDITOR_NAME } from './const';
 import { PRESETS } from './presets';
 import { resolveProfile } from './comfort';
 import { localize } from './localize';
+
+type BandDim = 'temperature' | 'humidity' | 'dewPoint';
 
 const ZONE_DISPLAYS: { id: ZoneDisplay; icon: string }[] = [
   { id: 'always', icon: 'mdi:eye' },
@@ -137,6 +139,114 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
     if (h) parts.push(`💧 ${h.min}–${h.max} %`);
     if (parts.length === 0) return nothing;
     return html`<div class="ccc-range-hint">${parts.join('   ·   ')}</div>`;
+  }
+
+  /** Preset chips for a point, plus a "Custom" chip that switches to manual bands. */
+  private _renderPointModeChips(point: PointConfig, index: number): TemplateResult {
+    const custom = !!point.comfort;
+    const chips: TemplateResult[] = [
+      this._chip(this._t('editor.use_default'), 'mdi:home-outline', !custom && !point.preset, () =>
+        this._updatePoint(index, { preset: undefined, comfort: undefined }),
+      ),
+      ...PRESETS.map((p) =>
+        this._chip(this._t(p.labelKey), p.icon, !custom && point.preset === p.id, () =>
+          this._updatePoint(index, { preset: p.id, comfort: undefined }),
+        ),
+      ),
+      this._chip(this._t('editor.preset_custom'), 'mdi:tune', custom, () =>
+        this._updatePoint(index, { comfort: this._seedComfort(point) }),
+      ),
+    ];
+    return html`<div class="ccc-chips">${chips}</div>`;
+  }
+
+  /** Seed custom bands from the point's currently resolved profile. */
+  private _seedComfort(point: PointConfig): ComfortProfile {
+    const base = resolveProfile(point, this._config!.preset);
+    const clone = (b?: { preferred: { min: number; max: number }; acceptable: { min: number; max: number } }) =>
+      b
+        ? { preferred: { ...b.preferred }, acceptable: { ...b.acceptable } }
+        : { preferred: { min: 19, max: 23 }, acceptable: { min: 17, max: 25 } };
+    return {
+      temperature: clone(base.temperature),
+      humidity: base.humidity
+        ? { preferred: { ...base.humidity.preferred }, acceptable: { ...base.humidity.acceptable } }
+        : { preferred: { min: 40, max: 60 }, acceptable: { min: 30, max: 65 } },
+    };
+  }
+
+  private _setComfortValue(
+    index: number,
+    dim: BandDim,
+    band: 'preferred' | 'acceptable',
+    key: 'min' | 'max',
+    value: number,
+  ): void {
+    const point = this._config!.points[index];
+    const c: any = point.comfort ? JSON.parse(JSON.stringify(point.comfort)) : {};
+    c[dim] = c[dim] ?? { preferred: { min: 0, max: 0 }, acceptable: { min: 0, max: 0 } };
+    c[dim][band][key] = value;
+    this._updatePoint(index, { comfort: c });
+  }
+
+  private _toggleDewPoint(index: number, on: boolean): void {
+    const point = this._config!.points[index];
+    const c: any = point.comfort ? JSON.parse(JSON.stringify(point.comfort)) : {};
+    if (on) {
+      c.dewPoint = {
+        preferred: { ...DEFAULT_DEWPOINT.preferred },
+        acceptable: { ...DEFAULT_DEWPOINT.acceptable },
+      };
+    } else {
+      delete c.dewPoint;
+    }
+    this._updatePoint(index, { comfort: c });
+  }
+
+  private _num(value: number, onInput: (v: number) => void): TemplateResult {
+    return html`<input
+      class="ccc-num"
+      type="number"
+      inputmode="decimal"
+      .value=${String(value)}
+      @input=${(e: Event) => {
+        const n = Number((e.target as HTMLInputElement).value);
+        if (Number.isFinite(n)) onInput(n);
+      }}
+    />`;
+  }
+
+  private _bandRow(point: PointConfig, index: number, dim: BandDim, nameKey: string): TemplateResult {
+    const b = (point.comfort as any)?.[dim] ?? {
+      preferred: { min: 0, max: 0 },
+      acceptable: { min: 0, max: 0 },
+    };
+    const set = (band: 'preferred' | 'acceptable', key: 'min' | 'max', v: number) =>
+      this._setComfortValue(index, dim, band, key, v);
+    return html`
+      <span class="ccc-band-name">${this._t(nameKey)}</span>
+      ${this._num(b.preferred.min, (v) => set('preferred', 'min', v))}
+      ${this._num(b.preferred.max, (v) => set('preferred', 'max', v))}
+      ${this._num(b.acceptable.min, (v) => set('acceptable', 'min', v))}
+      ${this._num(b.acceptable.max, (v) => set('acceptable', 'max', v))}
+    `;
+  }
+
+  private _renderCustomThresholds(point: PointConfig, index: number): TemplateResult {
+    const hasDew = !!point.comfort?.dewPoint;
+    return html`
+      <div class="ccc-custom-grid">
+        <span></span>
+        <span class="ccc-band-head">${this._t('editor.pref_min')}</span>
+        <span class="ccc-band-head">${this._t('editor.pref_max')}</span>
+        <span class="ccc-band-head">${this._t('editor.acc_min')}</span>
+        <span class="ccc-band-head">${this._t('editor.acc_max')}</span>
+        ${this._bandRow(point, index, 'temperature', 'editor.custom_temp')}
+        ${this._bandRow(point, index, 'humidity', 'editor.custom_hum')}
+        ${hasDew ? this._bandRow(point, index, 'dewPoint', 'editor.custom_dew') : nothing}
+      </div>
+      ${this._toggle(this._t('editor.custom_advanced'), hasDew, (v) => this._toggleDewPoint(index, v))}
+    `;
   }
 
   protected render(): TemplateResult | typeof nothing {
@@ -318,9 +428,10 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
 
         <div class="ccc-field">
           <div class="ccc-label">${this._t('editor.point_preset')}</div>
-          ${this._renderPresetChips(point.preset, true, (id) =>
-            this._updatePoint(index, { preset: id }))}
-          ${this._renderRangeHint(resolveProfile(point, this._config!.preset))}
+          ${this._renderPointModeChips(point, index)}
+          ${point.comfort
+            ? this._renderCustomThresholds(point, index)
+            : this._renderRangeHint(resolveProfile(point, this._config!.preset))}
         </div>
 
         ${this._toggle(
@@ -439,6 +550,42 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
     .ccc-range-hint {
       font-size: 12px;
       color: var(--secondary-text-color, #888);
+    }
+    .ccc-custom-grid {
+      display: grid;
+      grid-template-columns: minmax(58px, auto) repeat(4, minmax(0, 1fr));
+      gap: 6px 6px;
+      align-items: center;
+      margin-top: 4px;
+    }
+    .ccc-band-head {
+      font-size: 10px;
+      text-align: center;
+      color: var(--secondary-text-color, #888);
+      letter-spacing: 0.03em;
+    }
+    .ccc-band-name {
+      font-size: 12.5px;
+      color: var(--primary-text-color, #333);
+    }
+    .ccc-num {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 6px 4px;
+      border: none;
+      border-bottom: 1px solid
+        var(--mdc-text-field-idle-line-color, var(--secondary-text-color, #888));
+      border-radius: 4px 4px 0 0;
+      background: var(--mdc-text-field-fill-color, var(--secondary-background-color, rgba(0, 0, 0, 0.05)));
+      color: var(--mdc-text-field-ink-color, var(--primary-text-color, #333));
+      font: inherit;
+      font-size: 14px;
+      text-align: center;
+    }
+    .ccc-num:focus {
+      outline: none;
+      border-bottom: 2px solid var(--mdc-theme-primary, var(--primary-color, #03a9f4));
+      padding-bottom: 5px;
     }
     .ccc-toggle {
       display: flex;

@@ -5,9 +5,9 @@ plots the **temperature** and **humidity** of one or more rooms on a shared
 comfort chart, draws comfort zones behind them, and rates each point
 (comfortable / too cold / too humid / …).
 
-> First stable release focuses on **presets** and the psychrometric comfort
-> model. Custom threshold editing (simple & advanced modes) is modelled in the
-> config but not yet exposed in the GUI editor.
+> Preset-driven, with a psychrometric comfort model. Per-point **custom
+> thresholds** are editable in the GUI (a "Custom" mode with an optional
+> advanced dew-point band).
 
 ## What it does
 
@@ -89,6 +89,7 @@ Each **point**:
 | `temperature` | entity id | Temperature source (°C). Optional. |
 | `humidity` | entity id | Humidity source (%). Optional. |
 | `preset` | string | Preset for this point; falls back to the card default. |
+| `comfort` | object | Custom thresholds (overrides `preset`): `{temperature,humidity[,dewPoint]: {preferred:{min,max}, acceptable:{min,max}}}`. Set via the editor's Custom mode. |
 | `group` | string | Group name; points sharing it are grouped and filterable in the legend. |
 | `color` | string | Override the marker colour. |
 | `include_in_scale` | boolean | Whether this point stretches the auto-scaled axes (default true). |
