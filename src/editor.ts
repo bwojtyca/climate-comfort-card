@@ -171,28 +171,10 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
     return html`<div class="ccc-range-hint">${parts.join('   ·   ')}</div>`;
   }
 
-  private _num(value: number, onInput: (v: number) => void): TemplateResult {
-    return html`<input
-      class="ccc-num"
-      type="number"
-      inputmode="decimal"
-      .value=${String(value)}
-      @input=${(e: Event) => {
-        const n = Number((e.target as HTMLInputElement).value);
-        if (Number.isFinite(n)) onInput(n);
-      }}
-    />`;
-  }
-
-  /** Generic min/max band grid over a ComfortProfile, used for point custom and card presets. */
+  /** Generic min/max band editor over a ComfortProfile (point custom + card presets),
+   *  built from native ha-form number fields laid out per dimension. */
   private _renderBandGrid(profile: ComfortProfile, onChange: (p: ComfortProfile) => void): TemplateResult {
     const hasDew = !!profile.dewPoint;
-    const setVal = (dim: BandDim, band: 'preferred' | 'acceptable', key: 'min' | 'max', v: number) => {
-      const c: any = JSON.parse(JSON.stringify(profile));
-      c[dim] = c[dim] ?? { preferred: { min: 0, max: 0 }, acceptable: { min: 0, max: 0 } };
-      c[dim][band][key] = v;
-      onChange(c);
-    };
     const toggleDew = (on: boolean) => {
       const c: any = JSON.parse(JSON.stringify(profile));
       if (on)
@@ -203,39 +185,75 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
       else delete c.dewPoint;
       onChange(c);
     };
-    const row = (dim: BandDim, nameKey: string) => {
-      const b = (profile as any)[dim] ?? { preferred: { min: 0, max: 0 }, acceptable: { min: 0, max: 0 } };
-      return html`
-        <span class="ccc-band-name">${this._t(nameKey)}</span>
-        ${this._num(b.preferred.min, (v) => setVal(dim, 'preferred', 'min', v))}
-        ${this._num(b.preferred.max, (v) => setVal(dim, 'preferred', 'max', v))}
-        ${this._num(b.acceptable.min, (v) => setVal(dim, 'acceptable', 'min', v))}
-        ${this._num(b.acceptable.max, (v) => setVal(dim, 'acceptable', 'max', v))}
-      `;
-    };
     return html`
-      <div class="ccc-custom-grid">
-        <span></span>
-        <span class="ccc-band-head">${this._t('editor.pref_min')}</span>
-        <span class="ccc-band-head">${this._t('editor.pref_max')}</span>
-        <span class="ccc-band-head">${this._t('editor.acc_min')}</span>
-        <span class="ccc-band-head">${this._t('editor.acc_max')}</span>
-        ${row('temperature', 'editor.custom_temp')} ${row('humidity', 'editor.custom_hum')}
-        ${hasDew ? row('dewPoint', 'editor.custom_dew') : nothing}
-      </div>
+      ${this._bandForm(profile, 'temperature', 'editor.custom_temp', onChange)}
+      ${this._bandForm(profile, 'humidity', 'editor.custom_hum', onChange)}
+      ${hasDew ? this._bandForm(profile, 'dewPoint', 'editor.custom_dew', onChange) : nothing}
       ${this._toggle(this._t('editor.custom_advanced'), hasDew, toggleDew)}
     `;
   }
 
-  private _toggle(label: string, checked: boolean, onChange: (v: boolean) => void): TemplateResult {
-    return html`<label class="ccc-toggle">
-      <input
-        type="checkbox"
-        .checked=${checked}
-        @change=${(e: Event) => onChange((e.target as HTMLInputElement).checked)}
-      />
-      <span>${label}</span>
-    </label>`;
+  private _bandForm(
+    profile: ComfortProfile,
+    dim: BandDim,
+    labelKey: string,
+    onChange: (p: ComfortProfile) => void,
+  ): TemplateResult {
+    const b = (profile as any)[dim] ?? { preferred: { min: 0, max: 0 }, acceptable: { min: 0, max: 0 } };
+    const data = { pmin: b.preferred.min, pmax: b.preferred.max, amin: b.acceptable.min, amax: b.acceptable.max };
+    const num = { number: { mode: 'box' } };
+    const schema = [
+      {
+        name: dim,
+        type: 'grid',
+        schema: [
+          { name: 'pmin', selector: num },
+          { name: 'pmax', selector: num },
+          { name: 'amin', selector: num },
+          { name: 'amax', selector: num },
+        ],
+      },
+    ];
+    const labels: Record<string, string> = {
+      pmin: this._t('editor.pref_min'),
+      pmax: this._t('editor.pref_max'),
+      amin: this._t('editor.acc_min'),
+      amax: this._t('editor.acc_max'),
+    };
+    return html`
+      <div class="ccc-band-label">${this._t(labelKey)}</div>
+      <ha-form
+        .hass=${this.hass}
+        .data=${data}
+        .schema=${schema}
+        .computeLabel=${(s: { name: string }) => labels[s.name] ?? ''}
+        @value-changed=${(e: CustomEvent) => {
+          const v = e.detail.value;
+          const c: any = JSON.parse(JSON.stringify(profile));
+          c[dim] = {
+            preferred: { min: Number(v.pmin), max: Number(v.pmax) },
+            acceptable: { min: Number(v.amin), max: Number(v.amax) },
+          };
+          onChange(c);
+        }}
+      ></ha-form>
+    `;
+  }
+
+  private _toggle(
+    label: string,
+    checked: boolean,
+    onChange: (v: boolean) => void,
+    helper?: string,
+  ): TemplateResult {
+    return this._formField({
+      name: 'v',
+      selector: { boolean: {} },
+      label,
+      value: checked,
+      helper,
+      onChange: (v) => onChange(!!v),
+    });
   }
 
   /** A single native HA field via ha-form (always available inside the edit dialog). */
@@ -349,13 +367,12 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
         ${this._toggle(this._t('editor.show_legend'), this._config.show_legend !== false, (v) =>
           this._updateRoot({ show_legend: v }),
         )}
-
-        <div class="ccc-field">
-          ${this._toggle(this._t('editor.mold_risk'), this._config.mold_risk !== false, (v) =>
-            this._updateRoot({ mold_risk: v }),
-          )}
-          <div class="ccc-range-hint">${this._t('editor.mold_help')}</div>
-        </div>
+        ${this._toggle(
+          this._t('editor.mold_risk'),
+          this._config.mold_risk !== false,
+          (v) => this._updateRoot({ mold_risk: v }),
+          this._t('editor.mold_help'),
+        )}
 
         <div class="ccc-section-title">${this._t('editor.points')}</div>
         ${this._config.points.map((point, index) => this._renderPointEditor(point, index))}
@@ -376,14 +393,17 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
   }
 
   private _renderPresetAccordion(cp: CustomPreset, i: number): TemplateResult {
-    const expanded = this._expandedPreset === i;
     const title = cp.name || `Preset ${i + 1}`;
     return html`
-      <div class="ccc-point ${expanded ? 'is-open' : ''}">
-        <div class="ccc-point-head" @click=${() => (this._expandedPreset = expanded ? null : i)}>
-          <ha-icon class="ccc-caret" icon="mdi:chevron-right"></ha-icon>
-          <span class="ccc-point-title">${title}</span>
-          <div class="ccc-point-tools" @click=${(e: Event) => e.stopPropagation()}>
+      <ha-expansion-panel
+        .outlined=${true}
+        .leftChevron=${true}
+        .expanded=${this._expandedPreset === i}
+        @expanded-changed=${(e: CustomEvent) => (this._expandedPreset = e.detail.expanded ? i : null)}
+      >
+        <div slot="header" class="ccc-head">
+          <span class="ccc-head-title">${title}</span>
+          <div class="ccc-head-tools" @click=${(e: Event) => e.stopPropagation()}>
             <ha-icon-button
               .path=${ICON_DELETE}
               title=${this._t('editor.remove')}
@@ -391,8 +411,8 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
             ></ha-icon-button>
           </div>
         </div>
-        ${expanded
-          ? html`<div class="ccc-point-body">
+        ${this._expandedPreset === i
+          ? html`<div class="ccc-body">
               ${this._textField({
                 label: this._t('editor.preset_name'),
                 value: cp.name,
@@ -404,20 +424,23 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
               )}
             </div>`
           : nothing}
-      </div>
+      </ha-expansion-panel>
     `;
   }
 
   private _renderPointEditor(point: PointConfig, index: number): TemplateResult {
-    const expanded = this._expanded === index;
     const title = point.name || this._defaultName(point) || `${this._t('editor.point')} ${index + 1}`;
     const last = this._config!.points.length - 1;
     return html`
-      <div class="ccc-point ${expanded ? 'is-open' : ''}">
-        <div class="ccc-point-head" @click=${() => (this._expanded = expanded ? null : index)}>
-          <ha-icon class="ccc-caret" icon="mdi:chevron-right"></ha-icon>
-          <span class="ccc-point-title">${title}</span>
-          <div class="ccc-point-tools" @click=${(e: Event) => e.stopPropagation()}>
+      <ha-expansion-panel
+        .outlined=${true}
+        .leftChevron=${true}
+        .expanded=${this._expanded === index}
+        @expanded-changed=${(e: CustomEvent) => (this._expanded = e.detail.expanded ? index : null)}
+      >
+        <div slot="header" class="ccc-head">
+          <span class="ccc-head-title">${title}</span>
+          <div class="ccc-head-tools" @click=${(e: Event) => e.stopPropagation()}>
             <ha-icon-button
               .path=${ICON_UP}
               .disabled=${index === 0}
@@ -437,15 +460,14 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
             ></ha-icon-button>
           </div>
         </div>
-
-        ${expanded ? this._renderPointBody(point, index) : nothing}
-      </div>
+        ${this._expanded === index ? this._renderPointBody(point, index) : nothing}
+      </ha-expansion-panel>
     `;
   }
 
   private _renderPointBody(point: PointConfig, index: number): TemplateResult {
     return html`
-      <div class="ccc-point-body">
+      <div class="ccc-body">
         ${this._textField({
           label: this._t('editor.point_name'),
           value: point.name ?? '',
@@ -535,110 +557,42 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
       font-size: 12px;
       color: var(--secondary-text-color, #888);
     }
-    /* Collapsible point */
-    .ccc-point {
-      border: 1px solid var(--divider-color, #e0e0e0);
-      border-radius: 8px;
-      overflow: hidden;
+    ha-expansion-panel {
+      --expansion-panel-content-padding: 0;
     }
-    .ccc-point-head {
+    .ccc-head {
       display: flex;
       align-items: center;
       gap: 6px;
-      padding: 6px 6px 6px 10px;
-      cursor: pointer;
+      width: 100%;
     }
-    .ccc-point-head:hover {
-      background: var(--secondary-background-color, #f0f0f0);
-    }
-    .ccc-caret {
-      --mdc-icon-size: 20px;
-      color: var(--secondary-text-color, #888);
-      transition: transform 0.12s ease;
-      flex: 0 0 auto;
-    }
-    .ccc-point.is-open .ccc-caret {
-      transform: rotate(90deg);
-    }
-    .ccc-point-title {
+    .ccc-head-title {
       flex: 1;
       font-weight: 500;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
-    .ccc-point-tools {
+    .ccc-head-tools {
       display: flex;
       align-items: center;
       flex: 0 0 auto;
     }
-    .ccc-point-body {
+    .ccc-body {
       display: flex;
       flex-direction: column;
       gap: 8px;
       padding: 4px 12px 12px;
     }
-    /* Compact number inputs for the custom-threshold grid. */
-    .ccc-num {
-      width: 100%;
-      box-sizing: border-box;
-      border: none;
-      border-bottom: 1px solid
-        var(--mdc-text-field-idle-line-color, var(--secondary-text-color, #888));
-      border-radius: 4px 4px 0 0;
-      background: var(--mdc-text-field-fill-color, var(--secondary-background-color, rgba(0, 0, 0, 0.05)));
-      color: var(--mdc-text-field-ink-color, var(--primary-text-color, #333));
-      font: inherit;
+    .ccc-band-label {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--secondary-text-color, #888);
+      margin-top: 4px;
     }
-    .ccc-num:hover {
-      border-bottom-color: var(--mdc-text-field-hover-line-color, var(--primary-text-color, #333));
-    }
-    .ccc-num:focus {
-      outline: none;
-      border-bottom: 2px solid var(--mdc-theme-primary, var(--primary-color, #03a9f4));
-    }
-
     .ccc-range-hint {
       font-size: 12px;
       color: var(--secondary-text-color, #888);
-    }
-    .ccc-custom-grid {
-      display: grid;
-      grid-template-columns: minmax(58px, auto) repeat(4, minmax(0, 1fr));
-      gap: 6px 6px;
-      align-items: center;
-      margin-top: 4px;
-    }
-    .ccc-band-head {
-      font-size: 10px;
-      text-align: center;
-      color: var(--secondary-text-color, #888);
-      letter-spacing: 0.03em;
-    }
-    .ccc-band-name {
-      font-size: 12.5px;
-      color: var(--primary-text-color, #333);
-    }
-    .ccc-num {
-      padding: 6px 4px;
-      font-size: 14px;
-      text-align: center;
-    }
-    .ccc-num:focus {
-      padding-bottom: 5px;
-    }
-    .ccc-toggle {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      cursor: pointer;
-      font-size: 14px;
-    }
-    .ccc-toggle input {
-      width: 18px;
-      height: 18px;
-      accent-color: var(--primary-color, #03a9f4);
-      cursor: pointer;
     }
   `;
 }
