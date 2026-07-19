@@ -236,6 +236,29 @@ function convexHull(pts: [number, number][]): [number, number][] {
   return lower.slice(0, -1).concat(upper.slice(0, -1));
 }
 
+/** Rounded-corner path through hull vertices; corner radius ≈ marker radius. */
+function roundedPolygonPath(pts: [number, number][], radius: number): string {
+  const n = pts.length;
+  if (n < 3) return '';
+  let d = '';
+  for (let i = 0; i < n; i++) {
+    const prev = pts[(i - 1 + n) % n];
+    const curr = pts[i];
+    const next = pts[(i + 1) % n];
+    const [v1x, v1y] = [curr[0] - prev[0], curr[1] - prev[1]];
+    const [v2x, v2y] = [next[0] - curr[0], next[1] - curr[1]];
+    const len1 = Math.hypot(v1x, v1y) || 1;
+    const len2 = Math.hypot(v2x, v2y) || 1;
+    const r1 = Math.min(radius, len1 / 2);
+    const r2 = Math.min(radius, len2 / 2);
+    const a: [number, number] = [curr[0] - (v1x / len1) * r1, curr[1] - (v1y / len1) * r1];
+    const b: [number, number] = [curr[0] + (v2x / len2) * r2, curr[1] + (v2y / len2) * r2];
+    d += `${i === 0 ? 'M' : 'L'}${a[0].toFixed(1)},${a[1].toFixed(1)}`;
+    d += `Q${curr[0].toFixed(1)},${curr[1].toFixed(1)} ${b[0].toFixed(1)},${b[1].toFixed(1)}`;
+  }
+  return d + 'Z';
+}
+
 /** A soft blob connecting a group's points (drawn while its legend header is hovered). */
 function renderGroupHull(members: { t: number; h: number }[], scales: Scales): TemplateResult {
   const screen = members.map((m): [number, number] => [scales.x(m.t), scales.y(m.h)]);
@@ -250,12 +273,11 @@ function renderGroupHull(members: { t: number; h: number }[], scales: Scales): T
     return [p[0] + (dx / d) * PAD, p[1] + (dy / d) * PAD];
   };
   const hull = (screen.length === 2 ? screen : convexHull(screen)).map(grow);
-  const points = hull.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
   const shape =
     screen.length === 2
       ? svg`<line x1=${hull[0][0]} y1=${hull[0][1]} x2=${hull[1][0]} y2=${hull[1][1]}
           stroke=${GROUP_HULL_STROKE} stroke-width="10" stroke-linecap="round" opacity="0.5" />`
-      : svg`<polygon points=${points} fill=${GROUP_HULL_FILL}
+      : svg`<path d=${roundedPolygonPath(hull, 8)} fill=${GROUP_HULL_FILL}
           stroke=${GROUP_HULL_STROKE} stroke-width="1.5" stroke-linejoin="round" />`;
   return svg`<g clip-path="url(#ccc-plot-clip)">${shape}</g>`;
 }
