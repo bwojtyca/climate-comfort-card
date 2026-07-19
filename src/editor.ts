@@ -11,7 +11,6 @@ import type {
   TrailDisplay,
   ZoneDisplay,
 } from './types';
-import { loadHaComponents } from '@kipk/load-ha-components';
 import { DEFAULT_DEWPOINT, EDITOR_NAME } from './const';
 import { PRESETS, getPresetProfile } from './presets';
 import { resolveProfile } from './comfort';
@@ -47,11 +46,6 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
 
   public setConfig(config: ClimateComfortCardConfig): void {
     this._config = { ...config, points: config.points ?? [] };
-  }
-
-  protected async firstUpdated(): Promise<void> {
-    await loadHaComponents();
-    this.requestUpdate(); // re-render once ha-textfield / mwc-button are available
   }
 
   private get _lang(): string {
@@ -162,14 +156,9 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
     ];
   }
 
-  /** HA button when available, else a native styled fallback. */
+  /** HA button (registered in the card-edit dialog, like Bubble Card relies on). */
   private _button(label: string, onClick: () => void): TemplateResult {
-    if (customElements.get('mwc-button')) {
-      return html`<mwc-button raised class="ccc-add" @click=${onClick}>${label}</mwc-button>`;
-    }
-    return html`<button type="button" class="ccc-btn" @click=${onClick}>
-      <ha-icon icon="mdi:plus"></ha-icon><span>${label}</span>
-    </button>`;
+    return html`<mwc-button raised class="ccc-add" @click=${onClick}>${label}</mwc-button>`;
   }
 
   private _chip(label: string, icon: string, active: boolean, onClick: () => void): TemplateResult {
@@ -255,35 +244,39 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
     </label>`;
   }
 
+  /** A single native HA field via ha-form (always available inside the edit dialog). */
+  private _formField(opts: {
+    name: string;
+    selector: unknown;
+    label: string;
+    value: unknown;
+    helper?: string;
+    onChange: (value: unknown) => void;
+  }): TemplateResult {
+    return html`<ha-form
+      .hass=${this.hass}
+      .data=${{ [opts.name]: opts.value }}
+      .schema=${[{ name: opts.name, selector: opts.selector }]}
+      .computeLabel=${() => opts.label}
+      .computeHelper=${() => opts.helper ?? ''}
+      @value-changed=${(e: CustomEvent) => opts.onChange(e.detail.value[opts.name])}
+    ></ha-form>`;
+  }
+
   private _textField(opts: {
     label: string;
     value: string;
-    placeholder?: string;
     helper?: string;
     onInput: (value: string) => void;
   }): TemplateResult {
-    if (customElements.get('ha-textfield')) {
-      return html`<ha-textfield
-        class="ccc-tf"
-        .label=${opts.label}
-        .value=${opts.value}
-        .placeholder=${opts.placeholder ?? ''}
-        .helper=${opts.helper ?? ''}
-        .helperPersistent=${!!opts.helper}
-        @input=${(e: Event) => opts.onInput((e.target as HTMLInputElement).value)}
-      ></ha-textfield>`;
-    }
-    return html`<div class="ccc-field">
-      <div class="ccc-label">${opts.label}</div>
-      <input
-        class="ccc-input"
-        type="text"
-        .value=${opts.value}
-        placeholder=${opts.placeholder ?? ''}
-        @input=${(e: Event) => opts.onInput((e.target as HTMLInputElement).value)}
-      />
-      ${opts.helper ? html`<div class="ccc-range-hint">${opts.helper}</div>` : nothing}
-    </div>`;
+    return this._formField({
+      name: 'v',
+      selector: { text: {} },
+      label: opts.label,
+      value: opts.value,
+      helper: opts.helper,
+      onChange: (v) => opts.onInput((v as string) ?? ''),
+    });
   }
 
   private _defaultName(point: PointConfig): string {
@@ -341,10 +334,12 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
         </div>
 
         ${(this._config.trail_display ?? 'hover') !== 'off'
-          ? this._textField({
+          ? this._formField({
+              name: 'hours',
+              selector: { number: { min: 1, max: 240, mode: 'box' } },
               label: this._t('editor.trail_hours'),
-              value: String(this._config.trail_hours ?? 24),
-              onInput: (v) => {
+              value: this._config.trail_hours ?? 24,
+              onChange: (v) => {
                 const n = Number(v);
                 this._updateRoot({ trail_hours: Number.isFinite(n) && n > 0 ? n : undefined });
               },
@@ -454,8 +449,9 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
         ${this._textField({
           label: this._t('editor.point_name'),
           value: point.name ?? '',
-          placeholder: this._defaultName(point),
-          helper: this._t('editor.point_name_helper'),
+          helper: this._defaultName(point)
+            ? `${this._t('editor.point_name_helper')} (${this._defaultName(point)})`
+            : this._t('editor.point_name_helper'),
           onInput: (v) => this._updatePoint(index, { name: v || undefined }),
         })}
         ${this._textField({
@@ -525,11 +521,13 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
       gap: 12px;
     }
     ha-entity-picker,
-    ha-textfield.ccc-tf {
+    ha-form {
+      display: block;
       width: 100%;
     }
     mwc-button.ccc-add {
       align-self: flex-start;
+      margin-top: 4px;
     }
     .ccc-section-title {
       font-weight: 600;
@@ -546,15 +544,6 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
       font-size: 12px;
       color: var(--secondary-text-color, #888);
     }
-    .ccc-inline {
-      display: flex;
-      align-items: flex-end;
-      gap: 4px;
-    }
-    .ccc-inline .grow {
-      flex: 1;
-    }
-
     /* Collapsible point */
     .ccc-point {
       border: 1px solid var(--divider-color, #e0e0e0);
@@ -598,17 +587,7 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
       gap: 8px;
       padding: 4px 12px 12px;
     }
-    .ccc-preset-block {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      padding: 10px 12px;
-      border: 1px solid var(--divider-color, #e0e0e0);
-      border-radius: 8px;
-    }
-
-    /* Native input styled to match HA's Material filled text field. */
-    .ccc-input,
+    /* Compact number inputs for the custom-threshold grid. */
     .ccc-num {
       width: 100%;
       box-sizing: border-box;
@@ -620,25 +599,12 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
       color: var(--mdc-text-field-ink-color, var(--primary-text-color, #333));
       font: inherit;
     }
-    .ccc-input {
-      padding: 8px 12px;
-      font-size: 16px;
-    }
-    .ccc-input:hover,
     .ccc-num:hover {
       border-bottom-color: var(--mdc-text-field-hover-line-color, var(--primary-text-color, #333));
     }
-    .ccc-input:focus,
     .ccc-num:focus {
       outline: none;
       border-bottom: 2px solid var(--mdc-theme-primary, var(--primary-color, #03a9f4));
-    }
-    .ccc-input:focus {
-      padding-bottom: 7px;
-    }
-    .ccc-input::placeholder {
-      color: var(--mdc-text-field-label-ink-color, var(--secondary-text-color, #999));
-      opacity: 0.7;
     }
 
     .ccc-chips {
@@ -701,30 +667,6 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
     }
     .ccc-num:focus {
       padding-bottom: 5px;
-    }
-    .ccc-btn {
-      align-self: flex-start;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 8px 16px 8px 12px;
-      border: 1px solid var(--primary-color, #03a9f4);
-      border-radius: 8px;
-      background: transparent;
-      color: var(--primary-color, #03a9f4);
-      font: inherit;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background 0.1s ease;
-    }
-    .ccc-btn:hover {
-      background: var(--secondary-background-color, rgba(3, 169, 244, 0.08));
-    }
-    .ccc-btn ha-icon {
-      --mdc-icon-size: 18px;
-      width: 18px;
-      height: 18px;
     }
     .ccc-toggle {
       display: flex;
