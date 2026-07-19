@@ -43,10 +43,6 @@ const EN: Dict = {
 
   'editor.title': 'Title',
   'editor.default_preset': 'Default preset',
-  'editor.zone_mode': 'Comfort zones',
-  'editor.zone_mode.auto': 'Auto',
-  'editor.zone_mode.average': 'Averaged',
-  'editor.zone_mode.hidden': 'Hidden',
   'editor.show_legend': 'Show legend',
   'editor.mold_risk': 'Show mold-risk hint',
   'editor.mold_help': 'Hatches the humid area where mold could form on cold walls. Based on air temperature only (surface is likely cooler), so treat it as a rough hint.',
@@ -71,7 +67,6 @@ const EN: Dict = {
   'editor.temperature_entity': 'Temperature entity',
   'editor.humidity_entity': 'Humidity entity',
   'editor.point_preset': 'Preset',
-  'editor.preset_custom': 'Custom',
   'editor.custom_advanced': 'Advanced (dew point)',
   'editor.custom_temp': 'Temp. (°C)',
   'editor.custom_hum': 'Humidity (%)',
@@ -86,7 +81,6 @@ const EN: Dict = {
   'editor.remove': 'Remove',
   'editor.move_up': 'Move up',
   'editor.move_down': 'Move down',
-  'editor.legend': 'Legend',
 };
 
 const PL: Dict = {
@@ -127,10 +121,6 @@ const PL: Dict = {
 
   'editor.title': 'Tytuł',
   'editor.default_preset': 'Domyślny preset',
-  'editor.zone_mode': 'Strefy komfortu',
-  'editor.zone_mode.auto': 'Automatyczne',
-  'editor.zone_mode.average': 'Uśrednione',
-  'editor.zone_mode.hidden': 'Ukryte',
   'editor.show_legend': 'Pokaż legendę',
   'editor.mold_risk': 'Podpowiedź ryzyka pleśni',
   'editor.mold_help': 'Kreskuje wilgotny obszar, gdzie na chłodnych ścianach może tworzyć się pleśń. Liczone tylko z temperatury powietrza (powierzchnia bywa chłodniejsza), więc traktuj to orientacyjnie.',
@@ -155,7 +145,6 @@ const PL: Dict = {
   'editor.temperature_entity': 'Encja temperatury',
   'editor.humidity_entity': 'Encja wilgotności',
   'editor.point_preset': 'Preset',
-  'editor.preset_custom': 'Własne',
   'editor.custom_advanced': 'Zaawansowane (punkt rosy)',
   'editor.custom_temp': 'Temp. (°C)',
   'editor.custom_hum': 'Wilgotność (%)',
@@ -170,7 +159,6 @@ const PL: Dict = {
   'editor.remove': 'Usuń',
   'editor.move_up': 'Przesuń w górę',
   'editor.move_down': 'Przesuń w dół',
-  'editor.legend': 'Legenda',
 };
 
 const STRINGS: Record<string, Dict> = { en: EN, pl: PL };

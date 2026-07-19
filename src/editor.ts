@@ -18,17 +18,8 @@ import { localize } from './localize';
 
 type BandDim = 'temperature' | 'humidity' | 'dewPoint';
 
-const ZONE_DISPLAYS: { id: ZoneDisplay; icon: string }[] = [
-  { id: 'always', icon: 'mdi:eye' },
-  { id: 'hover', icon: 'mdi:gesture-tap' },
-  { id: 'hidden', icon: 'mdi:eye-off' },
-];
-
-const TRAIL_DISPLAYS: { id: TrailDisplay; icon: string }[] = [
-  { id: 'all', icon: 'mdi:vector-polyline' },
-  { id: 'hover', icon: 'mdi:gesture-tap' },
-  { id: 'off', icon: 'mdi:close' },
-];
+const ZONE_DISPLAYS: ZoneDisplay[] = ['always', 'hover', 'hidden'];
+const TRAIL_DISPLAYS: TrailDisplay[] = ['all', 'hover', 'off'];
 
 const ICON_UP = 'M7.41,15.41L12,10.83L16.59,15.41L18,14L12,8L6,14L7.41,15.41Z';
 const ICON_DOWN = 'M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z';
@@ -340,14 +331,14 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
         ${this._select({
           label: this._t('editor.zones'),
           value: this._config.zone_display ?? 'always',
-          options: ZONE_DISPLAYS.map((z) => ({ value: z.id, label: this._t(`editor.zones.${z.id}`) })),
+          options: ZONE_DISPLAYS.map((id) => ({ value: id, label: this._t(`editor.zones.${id}`) })),
           onChange: (v) => this._updateRoot({ zone_display: v as ZoneDisplay }),
         })}
 
         ${this._select({
           label: this._t('editor.trail'),
           value: this._config.trail_display ?? 'hover',
-          options: TRAIL_DISPLAYS.map((z) => ({ value: z.id, label: this._t(`editor.trail.${z.id}`) })),
+          options: TRAIL_DISPLAYS.map((id) => ({ value: id, label: this._t(`editor.trail.${id}`) })),
           onChange: (v) => this._updateRoot({ trail_display: v as TrailDisplay }),
         })}
 
@@ -464,20 +455,6 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
   private _renderPointBody(point: PointConfig, index: number): TemplateResult {
     return html`
       <div class="ccc-body">
-        ${this._textField({
-          label: this._t('editor.point_name'),
-          value: point.name ?? '',
-          helper: this._defaultName(point)
-            ? `${this._t('editor.point_name_helper')} (${this._defaultName(point)})`
-            : this._t('editor.point_name_helper'),
-          onInput: (v) => this._updatePoint(index, { name: v || undefined }),
-        })}
-        ${this._textField({
-          label: this._t('editor.point_group'),
-          value: point.group ?? '',
-          onInput: (v) => this._updatePoint(index, { group: v || undefined }),
-        })}
-
         <ha-entity-picker
           label=${this._t('editor.temperature_entity')}
           .hass=${this.hass}
@@ -498,6 +475,23 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
             this._updatePoint(index, { humidity: e.detail.value || undefined })}
         ></ha-entity-picker>
 
+        ${this._textField({
+          label: this._t('editor.point_name'),
+          value: point.name ?? '',
+          helper: this._defaultName(point)
+            ? `${this._t('editor.point_name_helper')} (${this._defaultName(point)})`
+            : this._t('editor.point_name_helper'),
+          onInput: (v) => this._updatePoint(index, { name: v || undefined }),
+        })}
+        ${this._textField({
+          label: this._t('editor.point_group'),
+          value: point.group ?? '',
+          onInput: (v) => this._updatePoint(index, { group: v || undefined }),
+        })}
+
+        ${this._toggle(this._t('editor.reference'), !!point.reference, (v) =>
+          this._updatePoint(index, { reference: v || undefined }),
+        )}
         ${point.reference
           ? nothing
           : html`
@@ -512,12 +506,8 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
               })}
               ${this._renderRangeHint(resolveProfile(point, this._config!))}
             `}
-
         ${this._toggle(this._t('editor.include_in_scale'), point.include_in_scale !== false, (v) =>
           this._updatePoint(index, { include_in_scale: v ? undefined : false }),
-        )}
-        ${this._toggle(this._t('editor.reference'), !!point.reference, (v) =>
-          this._updatePoint(index, { reference: v || undefined }),
         )}
       </div>
     `;
@@ -545,15 +535,6 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
       margin: 8px 0 2px;
       padding-top: 14px;
       border-top: 1px solid var(--divider-color, #e0e0e0);
-    }
-    .ccc-field {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-    .ccc-label {
-      font-size: 12px;
-      color: var(--secondary-text-color, #888);
     }
     .ccc-head {
       display: flex;
