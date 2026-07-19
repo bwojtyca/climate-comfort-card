@@ -156,9 +156,11 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
     ];
   }
 
-  /** HA button (registered in the card-edit dialog, like Bubble Card relies on). */
+  /** Native filled button (mwc-button/ha-button aren't reliably registered here). */
   private _button(label: string, onClick: () => void): TemplateResult {
-    return html`<mwc-button raised class="ccc-add" @click=${onClick}>${label}</mwc-button>`;
+    return html`<button type="button" class="ccc-btn" @click=${onClick}>
+      <ha-icon icon="mdi:plus"></ha-icon><span>${label}</span>
+    </button>`;
   }
 
   private _chip(label: string, icon: string, active: boolean, onClick: () => void): TemplateResult {
@@ -525,9 +527,32 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
       display: block;
       width: 100%;
     }
-    mwc-button.ccc-add {
+    /* Filled "contained" button, distinct from the tonal selection chips. */
+    .ccc-btn {
       align-self: flex-start;
       margin-top: 4px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 9px 18px 9px 14px;
+      border: none;
+      border-radius: 8px;
+      background: var(--primary-color, #03a9f4);
+      color: var(--text-primary-color, #fff);
+      font: inherit;
+      font-size: 14px;
+      font-weight: 500;
+      letter-spacing: 0.03em;
+      cursor: pointer;
+      transition: filter 0.1s ease;
+    }
+    .ccc-btn:hover {
+      filter: brightness(1.08);
+    }
+    .ccc-btn ha-icon {
+      --mdc-icon-size: 18px;
+      width: 18px;
+      height: 18px;
     }
     .ccc-section-title {
       font-weight: 600;
@@ -629,10 +654,14 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
     .ccc-chip:hover {
       background: var(--secondary-background-color, #f0f0f0);
     }
+    /* Selected = tonal (translucent accent), so a chip reads as a choice, not a button. */
     .ccc-chip.is-active {
-      background: var(--primary-color, #03a9f4);
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.16);
       border-color: var(--primary-color, #03a9f4);
-      color: var(--text-primary-color, #fff);
+      color: var(--primary-color, #03a9f4);
+    }
+    .ccc-chip.is-active ha-icon {
+      color: var(--primary-color, #03a9f4);
     }
     .ccc-chip ha-icon {
       --mdc-icon-size: 18px;
