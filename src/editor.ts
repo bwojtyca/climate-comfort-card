@@ -384,11 +384,9 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
 
   private _renderCustomPresets(): TemplateResult {
     return html`
-      <div class="ccc-field">
-        <div class="ccc-label">${this._t('editor.custom_presets')}</div>
-        ${this._customPresets.map((cp, i) => this._renderPresetAccordion(cp, i))}
-        ${this._button(this._t('editor.add_custom_preset'), () => this._addCustomPreset())}
-      </div>
+      <div class="ccc-section-title">${this._t('editor.custom_presets')}</div>
+      ${this._customPresets.map((cp, i) => this._renderPresetAccordion(cp, i))}
+      ${this._button(this._t('editor.add_custom_preset'), () => this._addCustomPreset())}
     `;
   }
 
@@ -541,10 +539,12 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
       margin-top: 4px;
     }
     .ccc-section-title {
-      font-weight: 600;
-      margin-top: 8px;
+      font-size: 16px;
+      font-weight: 500;
+      color: var(--primary-text-color, #212121);
+      margin: 8px 0 2px;
+      padding-top: 14px;
       border-top: 1px solid var(--divider-color, #e0e0e0);
-      padding-top: 12px;
     }
     .ccc-field {
       display: flex;
@@ -554,9 +554,6 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
     .ccc-label {
       font-size: 12px;
       color: var(--secondary-text-color, #888);
-    }
-    ha-expansion-panel {
-      --expansion-panel-content-padding: 0;
     }
     .ccc-head {
       display: flex;
@@ -580,7 +577,7 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
       display: flex;
       flex-direction: column;
       gap: 8px;
-      padding: 4px 12px 12px;
+      padding-bottom: 4px;
     }
     .ccc-band-label {
       font-size: 12px;
