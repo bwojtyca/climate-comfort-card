@@ -267,7 +267,7 @@ function roundedPolygonPath(pts: [number, number][], radius: number): string {
  * rounded capsule.
  */
 function renderGroupHull(members: { t: number; h: number }[], scales: Scales): TemplateResult {
-  const PAD = 15;
+  const PAD = 10;
   const corners: [number, number][] = [];
   for (const m of members) {
     const x = scales.x(m.t);
