@@ -11,6 +11,7 @@ import type {
   TrailDisplay,
   ZoneDisplay,
 } from './types';
+import { loadHaComponents } from '@kipk/load-ha-components';
 import { DEFAULT_DEWPOINT, EDITOR_NAME } from './const';
 import { PRESETS, getPresetProfile } from './presets';
 import { resolveProfile } from './comfort';
@@ -29,28 +30,6 @@ const TRAIL_DISPLAYS: { id: TrailDisplay; icon: string }[] = [
   { id: 'hover', icon: 'mdi:gesture-tap' },
   { id: 'off', icon: 'mdi:close' },
 ];
-
-/**
- * HA lazy-loads its form components (ha-textfield, mwc-button, ...); in a custom
- * card editor they may not be registered yet, so we nudge HA to load them by
- * instantiating the built-in entities-card editor once. Until they're defined,
- * the editor falls back to native controls.
- */
-async function loadHaComponents(): Promise<void> {
-  if (customElements.get('ha-textfield')) return;
-  try {
-    const helpers = await (window as any).loadCardHelpers?.();
-    const el = await helpers?.createCardElement?.({ type: 'entities', entities: [] });
-    await (el?.constructor as any)?.getConfigElement?.();
-  } catch {
-    /* stay on native fallback controls */
-  }
-  // The import that registers ha-textfield may resolve a tick later.
-  await Promise.race([
-    customElements.whenDefined('ha-textfield'),
-    new Promise((r) => setTimeout(r, 2000)),
-  ]);
-}
 
 const ICON_UP = 'M7.41,15.41L12,10.83L16.59,15.41L18,14L12,8L6,14L7.41,15.41Z';
 const ICON_DOWN = 'M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z';
