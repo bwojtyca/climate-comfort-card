@@ -183,21 +183,33 @@ export interface TrailPoint {
  * along the way (red where it was bad, green where it was fine).
  */
 function renderTrail(trail: TrailPoint[], color: string, scales: Scales, animate: boolean): TemplateResult {
+  const n = trail.length;
+  const last = n - 1;
+  const sp = trail.map((p): [number, number] => [scales.x(p.t), scales.y(p.h)]);
+  const f = (v: number) => v.toFixed(1);
+
+  // Each interval is a Catmull-Rom cubic bezier, so the path flows smoothly
+  // instead of zig-zagging through the raw samples, while still letting every
+  // segment keep its own colour/width/opacity.
   const segs: TemplateResult[] = [];
-  const coords: string[] = [];
-  const last = trail.length - 1;
-  for (let i = 0; i < trail.length; i++) {
-    coords.push(`${scales.x(trail[i].t).toFixed(1)},${scales.y(trail[i].h).toFixed(1)}`);
-    if (i === 0) continue;
-    const a = trail[i - 1];
-    const b = trail[i];
-    const frac = i / last; // 0 oldest, 1 newest
+  let fullPath = `M${f(sp[0][0])},${f(sp[0][1])}`;
+  for (let i = 0; i < last; i++) {
+    const p0 = sp[i - 1] ?? sp[i];
+    const p1 = sp[i];
+    const p2 = sp[i + 1];
+    const p3 = sp[i + 2] ?? sp[i + 1];
+    const c1x = p1[0] + (p2[0] - p0[0]) / 6;
+    const c1y = p1[1] + (p2[1] - p0[1]) / 6;
+    const c2x = p2[0] - (p3[0] - p1[0]) / 6;
+    const c2y = p2[1] - (p3[1] - p1[1]) / 6;
+    const curve = `C${f(c1x)},${f(c1y)} ${f(c2x)},${f(c2y)} ${f(p2[0])},${f(p2[1])}`;
+    const frac = (i + 1) / last; // 0 oldest -> 1 newest
     const op = 0.12 + 0.6 * frac;
     const w = 1 + 2 * frac; // ~1px oldest -> ~3px newest
-    segs.push(svg`<line x1=${scales.x(a.t)} y1=${scales.y(a.h)}
-      x2=${scales.x(b.t)} y2=${scales.y(b.h)}
-      stroke=${b.color} stroke-width=${w.toFixed(2)} stroke-opacity=${op.toFixed(2)}
+    segs.push(svg`<path d=${`M${f(p1[0])},${f(p1[1])} ${curve}`} fill="none"
+      stroke=${trail[i + 1].color} stroke-width=${w.toFixed(2)} stroke-opacity=${op.toFixed(2)}
       stroke-linecap="round" />`);
+    fullPath += ' ' + curve;
   }
 
   // Playhead runs the path via a CSS motion path (offset-path). CSS survives
@@ -205,7 +217,7 @@ function renderTrail(trail: TrailPoint[], color: string, scales: Scales, animate
   // smooth. Constant speed along the path; it lingers where the path wiggled.
   let playhead: TemplateResult | typeof nothing = nothing;
   if (animate) {
-    const path = 'M' + coords.join(' L');
+    const path = fullPath;
     const dur = Math.max(1.6, Math.min(5, trail.length * 0.09)).toFixed(1);
     playhead = svg`<circle class="ccc-playhead" r="1.5" fill=${color}
       style=${`offset-path:path('${path}');animation-duration:${dur}s`} />`;
