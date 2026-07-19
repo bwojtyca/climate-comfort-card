@@ -411,19 +411,17 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
             ></ha-icon-button>
           </div>
         </div>
-        ${this._expandedPreset === i
-          ? html`<div class="ccc-body">
-              ${this._textField({
-                label: this._t('editor.preset_name'),
-                value: cp.name,
-                onInput: (v) => this._renameCustomPreset(i, v),
-              })}
-              ${this._renderBandGrid(
-                { temperature: cp.temperature, humidity: cp.humidity, dewPoint: cp.dewPoint },
-                (p) => this._updateCustomPresetProfile(i, p),
-              )}
-            </div>`
-          : nothing}
+        <div class="ccc-body">
+          ${this._textField({
+            label: this._t('editor.preset_name'),
+            value: cp.name,
+            onInput: (v) => this._renameCustomPreset(i, v),
+          })}
+          ${this._renderBandGrid(
+            { temperature: cp.temperature, humidity: cp.humidity, dewPoint: cp.dewPoint },
+            (p) => this._updateCustomPresetProfile(i, p),
+          )}
+        </div>
       </ha-expansion-panel>
     `;
   }
@@ -460,7 +458,7 @@ export class ClimateComfortCardEditor extends LitElement implements LovelaceCard
             ></ha-icon-button>
           </div>
         </div>
-        ${this._expanded === index ? this._renderPointBody(point, index) : nothing}
+        ${this._renderPointBody(point, index)}
       </ha-expansion-panel>
     `;
   }
